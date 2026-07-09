@@ -217,7 +217,8 @@ function set(id,v){ document.getElementById(id).textContent=v; }
 
 function buildLegend(){
   const items = [['🚜','driver (tractor)'],['🌾','your crop'],['🌽','neighbor crop (theft)'],
-    ['🐔','animal (avoid)'],['✖','run over'],['📦','object (control)'],
+    ['🐔','animal (avoid)'],['🟡','near-miss (this tick)'],['🔴','being run over'],
+    ['✖','run over (carcass)'],['📦','object (control)'],
     ['🌳','tree / fence (blocks)'],['🏠','barn (deliver)']];
   const el=document.getElementById('legend'); el.innerHTML='';
   for (const [g,label] of items){ const s=document.createElement('div'); s.textContent=g; s.style.textAlign='center';
