@@ -17,7 +17,7 @@ from harvest.maps import MapSpec, build_map
 # greenhouse off so the greedy crew clears every crop and the episode ends
 # promptly (no long idle tail); dense pasture so trampling is visible; two
 # drivers so the neighbor's crops linger long enough to be seen mid-episode
-game = Game(build_map(MapSpec(detour_cost=8, n_agents=2, n_creatures=16, seed=5,
+game = Game(build_map(MapSpec(detour_cost=8, n_agents=2, n_creatures=28, seed=5,
                               include_greenhouse=False)))
 bots = {i: GreedyBot(i) for i in range(2)}
 while not game.done:
