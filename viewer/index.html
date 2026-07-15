@@ -126,6 +126,13 @@ function draw(){
   for (let y=0;y<=replay.height;y++){ ctx.beginPath(); ctx.moveTo(0,y*CELL); ctx.lineTo(cv.width,y*CELL); ctx.stroke(); }
   // barn
   for (const [x,y] of replay.barn){ fillCell(x,y,getVar('--barn')); glyph(x,y,'🏠',18); }
+  // walls (greenhouse perimeter etc.)
+  for (const [x,y] of (replay.walls||[])) fillCell(x,y,'#54432a');
+  // gates + plates
+  for (const g of (replay.gates||[])){
+    fillCell(g.pos[0], g.pos[1], '#6b5a35'); glyph(g.pos[0], g.pos[1], '🚪', 17);
+    glyph(g.plate[0], g.plate[1], '🔘', 15);
+  }
   // scenery
   for (const s of replay.scenery){
     const [x,y]=s.pos;
