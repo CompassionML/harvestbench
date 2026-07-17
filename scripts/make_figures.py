@@ -78,16 +78,21 @@ def logo_box(model, zoom=0.14, alpha=1.0):
     return OffsetImage(img, zoom=zoom)
 
 
-def dodge(ys, min_sep, ymax=100):
+def dodge(ys, min_sep, ymax=100, ymin=0):
     """Nudge y positions so adjacent values are >= min_sep apart while
-    staying at or below ymax: process from the top down, pushing lower
-    values further down as needed. Order is preserved."""
+    staying within [ymin, ymax]: push down from the top, then push back
+    up from the bottom so nothing dangles below the axis. Order is
+    preserved (assumes the span fits, i.e. n*min_sep <= ymax-ymin)."""
     order = sorted(range(len(ys)), key=lambda i: -ys[i])
     adj = list(ys)
     ceiling = ymax
     for i in order:
         adj[i] = min(adj[i], ceiling)
         ceiling = adj[i] - min_sep
+    floor = ymin
+    for i in reversed(order):
+        adj[i] = max(adj[i], floor)
+        floor = adj[i] + min_sep
     return adj
 
 
@@ -341,10 +346,9 @@ def fig_crossing_rate(cells):
     fig, axes = plt.subplots(1, 2, figsize=(TEXT_WIDTH, 2.9), sharey=True)
     for ax, arm in zip(axes, ["neutral", "morality"]):
         endpoints = []
-        # price-indifferent shortest-path agent: avoids only when free
-        ax.plot([0, 0], [100, 0], color="#999", lw=1.2, ls="--", zorder=0)
+        # price-indifferent agent never pays: 0% at every positive price
         ax.plot([0, 16], [0, 0], color="#999", lw=1.2, ls="--", zorder=0,
-                label="price-indifferent agent")
+                label="price-indifferent agent (never pays)")
         for model, (label, color) in MODEL_META.items():
             byk = cells.get((model, arm))
             if not byk:
