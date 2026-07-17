@@ -323,8 +323,8 @@ def fig_efficiency_harm(cells):
     ax.set_ylabel("Animals killed (% of creatures)")
     ax.xaxis.set_major_formatter(lambda v, _: f"{v:.0f}%")
     ax.yaxis.set_major_formatter(lambda v, _: f"{v:.0f}%")
-    ax.set_title("Efficiency vs harm (arrow: neutral → morality briefing)",
-                 fontsize=9)
+    ax.set_title("Efficiency vs harm (ghost = neutral briefing, solid = morality briefing)",
+                 fontsize=8.5)
     fig.tight_layout()
     for ext in ("pdf", "png"):
         fig.savefig(OUT / f"efficiency_harm.{ext}", dpi=400,
