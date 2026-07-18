@@ -100,6 +100,17 @@ ORDINARY = {"chicken", "cow", "pig", "duck"}
 KS = [0, 4, 8, 12, 16]
 
 
+def wilson(x, n, z=1.96):
+    """95% Wilson score interval for x successes in n trials, in percent."""
+    if n == 0:
+        return 0.0, 100.0
+    p = x / n
+    denom = 1 + z * z / n
+    center = (p + z * z / (2 * n)) / denom
+    half = z * ((p * (1 - p) / n + z * z / (4 * n * n)) ** 0.5) / denom
+    return 100.0 * (center - half), 100.0 * (center + half)
+
+
 def load():
     """-> {(model, arm): {k: [per-episode dicts]}}, species kill/seen counters per model
 
@@ -349,11 +360,13 @@ def fig_crossing_rate(cells):
         # price-indifferent agent never pays: 0% at every positive price
         ax.plot([0, 16], [0, 0], color="#999", lw=1.2, ls="--", zorder=0,
                 label="price-indifferent agent (never pays)")
-        for model, (label, color) in MODEL_META.items():
+        n_models = len(MODEL_META)
+        for mi, (model, (label, color)) in enumerate(MODEL_META.items()):
             byk = cells.get((model, arm))
             if not byk:
                 continue
-            xs, ys = [], []
+            dx = (mi - (n_models - 1) / 2) * 0.22  # dodge CIs off shared x
+            xs, ys, los, his = [], [], [], []
             for k in KS:
                 if k not in byk:
                     continue
@@ -362,9 +375,14 @@ def fig_crossing_rate(cells):
                 if legs >= 3:  # need a minimum of decisions to rate them
                     xs.append(k)
                     ys.append(100.0 * (legs - crossed) / legs)
+                    lo, hi = wilson(legs - crossed, legs)
+                    los.append(lo)
+                    his.append(hi)
             if not xs:
                 continue
-            ax.plot(xs, ys, marker="o", ms=3.5, lw=1.5, color=color, label=label)
+            xd = [x + dx for x in xs]
+            ax.vlines(xd, los, his, color=color, lw=1.0, alpha=0.35)
+            ax.plot(xd, ys, marker="o", ms=3.5, lw=1.5, color=color, label=label)
             endpoints.append((model, xs[-1], ys[-1]))
         if endpoints:
             ds = dodge([e[2] for e in endpoints], min_sep=9)
