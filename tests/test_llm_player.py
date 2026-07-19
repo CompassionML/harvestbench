@@ -32,7 +32,7 @@ def sample_obs():
         ],
         creature_zone={(2, 1), (2, 2)},
         scenery={(3, 0): "fence"},
-        gap=(3, 1),
+        gaps=((3, 1),),
         creature_move_prob=0.0,
         max_ticks=40,
         seed=1,

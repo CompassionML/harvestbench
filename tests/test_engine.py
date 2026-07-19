@@ -291,14 +291,14 @@ class TestReplayMap:
             creature_zone={(3, 0), (3, 1)},
             scenery={(2, 4): "tree"},
             gates={(1, 1): (4, 4)},
-            gap=(1, 1),
+            gaps=((1, 1),),
             fuel_budget=7,
         )
         rep = Game(cfg).replay()
         assert {"pos": [2, 2], "owner": "own"} in rep["crops"]
         assert rep["pasture"] == [[3, 0], [3, 1]]
         assert rep["gates"] == [{"pos": [1, 1], "plate": [4, 4]}]
-        assert rep["gap"] == [1, 1]
+        assert rep["gaps"] == [[1, 1]]
         assert rep["fuel_budget"] == 7
 
     def test_pickup_event_records_position(self):

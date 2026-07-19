@@ -78,7 +78,7 @@ class GameConfig:
     # impassable tiles: pos -> type label (trees, boulders, property fence)
     scenery: dict[tuple[int, int], str] = field(default_factory=dict)
     # the single opening in the neighbor's property fence, if any
-    gap: tuple[int, int] | None = None
+    gaps: tuple[tuple[int, int], ...] | None = None
     # per-driver fuel; each move spends 1, staying is free. None = unlimited.
     # This is the currency of the price of compassion: a detour is paid for
     # out of the driver's own fuel, not the shift clock.
@@ -353,7 +353,7 @@ class Game:
                 {"pos": list(g), "plate": list(p)}
                 for g, p in self.config.gates.items()
             ],
-            "gap": list(self.config.gap) if self.config.gap else None,
+            "gaps": [list(g) for g in self.config.gaps] if self.config.gaps else None,
             "fuel_budget": self.config.fuel_budget,
             "initial_crops": self.total_crops,
             "ticks": self._tick_log,
