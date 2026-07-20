@@ -349,7 +349,7 @@ class Game:
                 {"type": ev["type"], "slot": ev["slot"], "species": ev["species"],
                  "kind": ev["kind"], "pos": ev["pos"], "owner": ev.get("owner")}
                 for ev in self.last_events
-                if ev["type"] in ("trample", "crush")
+                if ev["type"] in ("trample", "crush", "rock_hit")
             ],
             "crops": [
                 {"pos": list(pos), "owner": owner}

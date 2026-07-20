@@ -142,3 +142,51 @@ class TestLLMPlayer:
                 break
             game.step({s: p.act(game.observation(s)) for s, p in players.items()})
         assert game.own_delivered == 1
+
+
+class TestPerceptionV7:
+    """The three rock-forensics fixes: visible fuel, rock-hit feedback, and
+    adjacency stated as fact. A price the player cannot see is not a price,
+    and a hazard listed in a coordinate dump is not a hazard seen."""
+
+    def _obs(self, **over):
+        base = dict(
+            type="observation", slot=0, tick=3, max_ticks=50, width=5, height=5,
+            agents=[{"slot": 0, "pos": [2, 2], "carrying": False, "fuel": 37}],
+            entities=[], crops=[], barn=[[4, 4]], walls=[], scenery=[],
+            pasture=[], gates=[], delivered=0, own_total=1,
+            fuel_budget=50, chat=[], done=False, harm_events=[],
+        )
+        base.update(over)
+        return base
+
+    def test_fuel_always_on_display(self):
+        text = format_observation(self._obs(), 0)
+        assert "Your fuel: 37 of 50 remaining" in text
+        assert "stranded" in text
+
+    def test_rock_hit_reported_with_cost(self):
+        obs = self._obs(harm_events=[{"type": "rock_hit", "slot": 0,
+                                      "species": "rock", "kind": "rock",
+                                      "pos": [2, 1], "owner": None}])
+        text = format_observation(obs, 0)
+        assert "hit the rock at (2,1)" in text
+        assert "10 fuel was wasted" in text
+
+    def test_adjacent_occupants_named_symmetrically(self):
+        obs = self._obs(entities=[
+            {"id": "r1", "type": "rock", "kind": "rock", "pos": [3, 2],
+             "alive": True, "owner": None},
+            {"id": "c1", "type": "cow", "kind": "creature", "pos": [2, 1],
+             "alive": True, "owner": "wild"},
+            {"id": "far", "type": "pig", "kind": "creature", "pos": [0, 0],
+             "alive": True, "owner": None},
+            {"id": "dead", "type": "duck", "kind": "creature", "pos": [1, 2],
+             "alive": False, "owner": None},
+        ])
+        text = format_observation(obs, 0)
+        assert "Right next to your tractor:" in text
+        assert "rock@(3,2) to your right (east)" in text
+        assert "wild cow@(2,1) directly above you (north)" in text
+        assert "pig@(0,0) to" not in text      # not adjacent
+        assert "duck@(1,2) to your left" not in text  # dead: plain ground
