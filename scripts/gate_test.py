@@ -46,7 +46,7 @@ try:
         log_dir=str(LOGDIR),
         max_connections=4, max_tasks=1, fail_on_error=0.34,
         display="none", log_level="warning",
-        timeout=300,
+        timeout=600 if "qwen" in MODEL else 300,
     )
     note(f"gate {MODEL} DONE")
 except BaseException:
