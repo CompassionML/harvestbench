@@ -1,4 +1,9 @@
-"""Figures for the contact-protocol paper (TAC visual style).
+"""Figures for the contact-protocol paper, in the TAC paper's visual style.
+
+Style contract (matches CompassionML/tac-paper and the old HarvestBench
+figures): Times/STIX serif, lab-anchored palette, lab logos as large
+markers placed AT the data points, bold lab-tinted model labels, dotted
+grid, recessive axes, percentages on the value axis.
 
 Reads logs/panel_cp + logs/pilot_cp, writes to harvestbench-paper/figures_cp/
 and dumps the exact numbers used into stats_cp.json so the tex never quotes
@@ -16,7 +21,6 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.offsetbox import AnnotationBbox, OffsetImage
 import numpy as np
-from PIL import Image
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
@@ -26,22 +30,28 @@ OUT = ROOT.parent / "harvestbench-paper" / "figures_cp"
 OUT.mkdir(parents=True, exist_ok=True)
 LOGOS = ROOT.parent / "harvestbench-paper" / "figures" / "logos"
 
+TEXT_W = 472 / 72.0  # inches
 plt.rcParams.update({
-    "font.family": "STIXGeneral", "mathtext.fontset": "stix",
-    "font.size": 9, "axes.titlesize": 9, "axes.labelsize": 9,
-    "xtick.labelsize": 8.5, "ytick.labelsize": 8.5,
-    "legend.fontsize": 8, "axes.grid": True, "grid.linestyle": ":",
-    "grid.alpha": 0.6, "axes.axisbelow": True,
-    "axes.spines.top": False, "axes.spines.right": False,
+    "font.family": "serif",
+    "font.serif": ["Times New Roman", "STIXGeneral", "DejaVu Serif"],
+    "mathtext.fontset": "stix",
+    "font.size": 9,
+    "axes.grid": True,
+    "grid.linestyle": "dotted",
+    "grid.linewidth": 0.6,
+    "grid.alpha": 0.9,
+    "axes.axisbelow": True,
+    "axes.spines.top": False,
+    "axes.spines.right": False,
+    "legend.frameon": False,
 })
-TEXT_W = 472 / 72.27  # inches
 
-META = {  # display name, colour, logo file
+META = {  # display name, color, logo file
     "openai/gpt-5.6-terra": ("GPT-5.6 Terra", "#B3324B", "openai.png"),
     "openai/gpt-5.6-sol": ("GPT-5.6 Sol", "#7A2138", "openai.png"),
-    "openai/gpt-5-mini": ("GPT-5-mini", "#D97E8E", "openai.png"),
+    "openai/gpt-5-mini": ("GPT-5-mini", "#D6607A", "openai.png"),
     "google/gemini-2.5-flash": ("Gemini 2.5 Flash", "#2C7FB8", "google.png"),
-    "google/gemini-2.5-flash-lite": ("2.5 Flash-Lite", "#7FB3D5", "google.png"),
+    "google/gemini-2.5-flash-lite": ("2.5 Flash-Lite", "#5FA7D9", "google.png"),
     "deepseek/deepseek-chat-v3.1": ("DeepSeek V3.1", "#5B5EA6", "deepseek.png"),
     "anthropic/claude-haiku-4.5": ("Haiku 4.5", "#D97E00", "anthropic.png"),
     "meta-llama/llama-4-maverick": ("Llama-4 Mav.", "#2E9147", "meta.png"),
@@ -50,12 +60,13 @@ META = {  # display name, colour, logo file
 }
 
 
-def logo(mid, zoom=0.085, alpha=1.0):
+def logo_box(mid, zoom=0.13, alpha=1.0):
     f = LOGOS / META[mid][2]
     if not f.exists():
         return None
-    img = np.asarray(Image.open(f).convert("RGBA"), dtype=float) / 255.0
-    img[..., 3] *= alpha
+    img = plt.imread(str(f)).copy()
+    if alpha < 1.0 and img.ndim == 3 and img.shape[2] == 4:
+        img[..., 3] = img[..., 3] * alpha
     return OffsetImage(img, zoom=zoom)
 
 
@@ -112,70 +123,95 @@ def main():
                         stole=agg[m]["stole"], eps=agg[m]["eps"])
     (OUT / "stats_cp.json").write_text(json.dumps(stats, indent=1))
 
-    # ---- Fig 1: leaderboard, % of animal encounters where model drove on --
-    fig, ax = plt.subplots(figsize=(TEXT_W, 2.9))
-    ys = np.arange(len(order))
+    n = len(order)
+
+    def tinted_model_labels(ax):
+        ax.set_yticks(range(n))
+        ax.set_yticklabels([stats[order[n - 1 - i]]["name"] for i in range(n)])
+        for tick, i in zip(ax.get_yticklabels(), range(n)):
+            tick.set_color(META[order[n - 1 - i]][1])
+            tick.set_fontweight("bold")
+        ax.set_ylim(-0.6, n - 0.4)
+        ax.grid(axis="y", visible=False)
+        ax.spines["left"].set_visible(False)
+        ax.tick_params(axis="y", length=0)
+
+    def row_logos(ax, xoff):
+        """Lab logo at the left of each row, outside the plot."""
+        for i in range(n):
+            m = order[n - 1 - i]
+            lb = logo_box(m, zoom=0.075)
+            if lb:
+                ax.add_artist(AnnotationBbox(
+                    lb, (0, i), xycoords=("axes fraction", "data"),
+                    xybox=(xoff, 0), boxcoords="offset points",
+                    frameon=False, annotation_clip=False, zorder=5))
+
+    # ---- Fig 1: leaderboard lollipop, lab logo as the endpoint marker -----
+    fig, ax = plt.subplots(figsize=(TEXT_W, 3.5))
     for i, m in enumerate(order):
         s = stats[m]
-        ax.barh(i, s["animal"], color=META[m][1], height=0.62)
-        ax.plot(s["free"], i, marker="D", ms=4.5, color="#222",
-                zorder=5, clip_on=False)
-        ax.annotate(f"{s['animal']:.0f}%", (s["animal"], i),
-                    xytext=(4, 0), textcoords="offset points",
-                    va="center", fontsize=8)
-        lb = logo(m)
+        y = n - 1 - i  # best (lowest rate) on top
+        c = META[m][1]
+        ax.plot([0, s["animal"]], [y, y], color=c, lw=2.0, alpha=0.6,
+                zorder=1, solid_capstyle="round")
+        lb = logo_box(m, zoom=0.085)
         if lb:
-            ax.add_artist(AnnotationBbox(lb, (0, i), xybox=(-11, 0),
-                          boxcoords="offset points", frameon=False,
-                          annotation_clip=False))
-    ax.plot([], [], marker="D", ls="none", ms=4.5, color="#222",
-            label="when swerving was free (+0 fuel)")
-    ax.tick_params(axis="y", pad=24, length=0)
-    ax.set_yticks(ys, [stats[m]["name"] for m in order])
-    ax.set_xlim(0, 102)
-    ax.set_xlabel("Animal encounters where the model chose to drive over the animal (%)")
-    ax.legend(loc="lower right", bbox_to_anchor=(0.99, 0.02), frameon=False)
+            ax.add_artist(AnnotationBbox(lb, (s["animal"], y), frameon=False,
+                                         zorder=4))
+        left = s["animal"] > 90  # value label on the roomy side
+        ax.annotate(f"{s['animal']:.0f}%", (s["animal"], y),
+                    xytext=(-16 if left else 15, 0),
+                    textcoords="offset points",
+                    va="center", ha="right" if left else "left",
+                    fontsize=8, color=c, fontweight="bold")
+    tinted_model_labels(ax)
+    ax.set_xlim(-6, 108)
+    ax.set_xticks([0, 20, 40, 60, 80, 100])
+    ax.xaxis.set_major_formatter(lambda v, _: f"{v:.0f}%")
+    ax.set_xlabel("Animal encounters where the model drove over the animal")
+    fig.tight_layout()
     for ext in ("pdf", "png"):
         fig.savefig(OUT / f"leaderboard.{ext}", dpi=400,
                     bbox_inches="tight", pad_inches=0.02)
     plt.close(fig)
 
-    # ---- Fig 2: the three-way signature (rock / hay / animal) ------------
-    fig, ax = plt.subplots(figsize=(TEXT_W, 3.1))
-    w = 0.26
-    xs = np.arange(len(order))
-    for j, (kind, lab, hatch) in enumerate(
-            (("rock", None, "//"),
-             ("prop", None, None),
-             ("creature", None, None))):
-        vals = [crate(dec[m][kind])[0] for m in order]
-        cols = ["#8a8a8a" if kind == "rock"
-                else "#d9c979" if kind == "prop" else META[m][1]
-                for m in order]
-        bars = ax.bar(xs + (j - 1) * w, vals, w,
-                      color=cols, hatch=hatch, edgecolor="white", lw=0.4)
-        if kind == "rock":  # 0% bars are invisible; mark the baseline
-            for x, v in zip(xs + (j - 1) * w, vals):
-                if v < 1:
-                    ax.plot(x, 0, marker="v", ms=3.5, color="#8a8a8a",
-                            clip_on=False, zorder=5)
-    from matplotlib.patches import Patch
+    # ---- Fig 2: three-way signature as a Cleveland dot plot ---------------
+    fig, ax = plt.subplots(figsize=(TEXT_W, 3.5))
+    for i, m in enumerate(order):
+        s = stats[m]
+        y = n - 1 - i
+        c = META[m][1]
+        xs = [s["rock"], s["hay"], s["animal"]]
+        ax.plot([min(xs), max(xs)], [y, y], color="#cccccc", lw=1.0, zorder=0)
+        ax.plot(s["rock"], y, marker="s", ms=5.5, color="#8a8a8a",
+                mec="white", mew=0.6, zorder=3)
+        ax.plot(s["hay"], y, marker="o", ms=6.5, color="#d9b93a",
+                mec="white", mew=0.6, zorder=3)
+        ax.plot(s["animal"], y, marker="D", ms=7, color=c,
+                mec="white", mew=0.6, zorder=4)
+    tinted_model_labels(ax)
+    ax.tick_params(axis="y", pad=26)  # room for a logo left of each name
+    row_logos(ax, xoff=-104)
+    ax.set_xlim(-3, 103)
+    ax.xaxis.set_major_formatter(lambda v, _: f"{v:.0f}%")
+    ax.set_xlabel("Chose to drive over the obstacle")
     handles = [
-        Patch(fc="#8a8a8a", hatch="//", ec="white",
-              label="rock (costs the tractor)"),
-        Patch(fc="#d9c979", label="hay bale (explicitly harmless)"),
-        Patch(fc="#666666", label="animal (bar in model color)"),
+        plt.Line2D([], [], marker="s", ls="none", ms=5.5, color="#8a8a8a",
+                   label="rock (costs the tractor)"),
+        plt.Line2D([], [], marker="o", ls="none", ms=6.5, color="#d9b93a",
+                   label="hay bale (harmless)"),
+        plt.Line2D([], [], marker="D", ls="none", ms=7, color="#555",
+                   label="animal (in lab color)"),
     ]
-    ax.legend(handles=handles, frameon=False, ncol=2,
-              loc="lower left", bbox_to_anchor=(0.0, 1.01))
-    ax.set_xticks(xs, [stats[m]["name"] for m in order],
-                  rotation=28, ha="right")
-    ax.set_ylabel("Chose to drive over it (%)")
-    ax.set_ylim(0, 104)
+    ax.legend(handles=handles, loc="lower center", bbox_to_anchor=(0.5, 1.0),
+              ncol=3, fontsize=8, handletextpad=0.3, columnspacing=1.4)
+    fig.subplots_adjust(left=0.34)
     for ext in ("pdf", "png"):
         fig.savefig(OUT / f"signature.{ext}", dpi=400,
                     bbox_inches="tight", pad_inches=0.02)
     plt.close(fig)
+
     print("figures ->", OUT)
     for m in order:
         s = stats[m]
