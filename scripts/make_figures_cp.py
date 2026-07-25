@@ -175,7 +175,7 @@ def fig_regard(stats, order):
     for m in solo:
         x, y = stats[m]["hay"], stats[m]["animal"]
         c = META[m][1]
-        lb = logo_box(m, zoom=0.145)
+        lb = logo_box(m, zoom=0.20)
         if lb:
             ax.add_artist(AnnotationBbox(lb, (x, y), frameon=False, zorder=6))
         ax.annotate(META[m][0], (x, y), xytext=(0, -13),
@@ -187,7 +187,7 @@ def fig_regard(stats, order):
         hi = max(stats[m]["animal"] for m in pile)
         # inside the same quadrant they belong to, not off in empty space
         cx, cy = 70.0, 101.0
-        half = 2.5 + 8.6 * len(pile) / 2.0
+        half = 3.0 + 10.4 * len(pile) / 2.0
         ax.add_patch(plt.Rectangle((cx - half, cy - 15.5), 2 * half, 25.0,
                                    fc="white", ec="#e0cdd2", lw=0.9,
                                    zorder=5, alpha=0.96))
@@ -199,7 +199,7 @@ def fig_regard(stats, order):
                 color="#B3324B", zorder=6)
         xs = np.linspace(cx - half + 6.0, cx + half - 6.0, len(pile))
         for m, gx in zip(pile, xs):
-            lb = logo_box(m, zoom=0.105)
+            lb = logo_box(m, zoom=0.135)
             if lb:
                 ax.add_artist(AnnotationBbox(lb, (gx, cy + 4.0), frameon=False,
                                              zorder=7))
@@ -231,15 +231,15 @@ def fig_price(stats, order):
     rows = [m for m in order if not np.isnan(stats[m]["priced"])
             and not np.isnan(stats[m]["free"])]
     n = len(rows)
-    fig, ax = plt.subplots(figsize=(TEXT_W * 0.92, 0.30 * n + 1.0))
+    fig, ax = plt.subplots(figsize=(TEXT_W * 0.92, 0.36 * n + 0.9))
     for i, m in enumerate(rows):
         y = n - 1 - i
         c = META[m][1]
         a, b = stats[m]["priced"], stats[m]["free"]
         ax.plot([a, b], [y, y], color=c, lw=1.8, alpha=0.65, zorder=2,
                 solid_capstyle="round")
-        gh = logo_box(m, zoom=0.115, alpha=0.32)
-        so = logo_box(m, zoom=0.115)
+        gh = logo_box(m, zoom=0.155, alpha=0.30)
+        so = logo_box(m, zoom=0.155)
         if gh:
             ax.add_artist(AnnotationBbox(gh, (a, y), frameon=False, zorder=4))
         if so:
@@ -257,9 +257,24 @@ def fig_price(stats, order):
     ax.spines["left"].set_visible(False)
     ax.tick_params(axis="y", length=0)
     ax.set_xlabel("Animals driven over")
-    ax.set_title("Faded logo: swerving costs fuel.    Solid logo: swerving is "
-                 "free.\nShort connectors mean the price changed nothing.",
-                 fontsize=8.4, color="#333", linespacing=1.5, pad=10)
+
+    # visual key: the same two marks the rows use, shown rather than described
+    key = "openai/gpt-5-mini"
+    kx, ky = 34.0, n - 1.35
+    ax.plot([kx, kx + 15], [ky, ky], color="#9a9a9a", lw=1.8, alpha=0.6,
+            zorder=2, solid_capstyle="round")
+    g = logo_box(key, zoom=0.155, alpha=0.30)
+    s2 = logo_box(key, zoom=0.155)
+    if g:
+        ax.add_artist(AnnotationBbox(g, (kx, ky), frameon=False, zorder=4))
+    if s2:
+        ax.add_artist(AnnotationBbox(s2, (kx + 15, ky), frameon=False, zorder=5))
+    ax.annotate("swerving\ncosts fuel", (kx, ky), xytext=(0, -15),
+                textcoords="offset points", ha="center", va="top",
+                fontsize=7.6, color="#555", linespacing=1.35)
+    ax.annotate("swerving\nis free", (kx + 15, ky), xytext=(0, -15),
+                textcoords="offset points", ha="center", va="top",
+                fontsize=7.6, color="#555", linespacing=1.35)
     fig.tight_layout()
     for ext in ("pdf", "png"):
         fig.savefig(OUT / f"price.{ext}", dpi=400, bbox_inches="tight",
@@ -283,7 +298,7 @@ def fig_harvest(stats, order):
             zorder=2)
 
     norm = [((x - x0) / (x1 - x0), (y - y0) / (y1 - y0)) for x, y in zip(xs, ys)]
-    disp = declutter(norm, min_d=0.115, bounds=(0.02, 0.98, 0.04, 0.96))
+    disp = declutter(norm, min_d=0.135, bounds=(0.02, 0.98, 0.04, 0.96))
 
     for m, (nx, ny), (tx, ty) in zip(order, disp, norm):
         dx = x0 + nx * (x1 - x0)
@@ -296,9 +311,9 @@ def fig_harvest(stats, order):
         if abs(dx - rx) > 0.01 or abs(dy - ry) > 0.01:
             ax.plot([rx, dx], [ry, dy], color=c, lw=0.7, alpha=0.5, zorder=3)
             ax.plot([rx], [ry], marker="o", ms=2.4, color=c, zorder=4)
-        ax.plot([dx], [dy], marker="o", ms=15.5, mfc="white", mec=ring,
+        ax.plot([dx], [dy], marker="o", ms=21.0, mfc="white", mec=ring,
                 mew=1.6, zorder=5)
-        lb = logo_box(m, zoom=0.10)
+        lb = logo_box(m, zoom=0.14)
         if lb:
             ax.add_artist(AnnotationBbox(lb, (dx, dy), frameon=False, zorder=6))
         ax.annotate(META[m][0], (dx, dy), xytext=(0, -12),
