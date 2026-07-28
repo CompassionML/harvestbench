@@ -14,7 +14,15 @@ sys.path.insert(0, str(ROOT))
 from inspect_ai.log import read_eval_log  # noqa: E402
 
 NAMES = {"openai/gpt-5.6-terra": "GPT-5.6 Terra",
-         "google/gemini-2.5-flash": "Gemini 2.5 Flash"}
+         "openai/gpt-5.6-sol": "GPT-5.6 Sol",
+         "openai/gpt-5-mini": "GPT-5-mini",
+         "google/gemini-2.5-flash": "Gemini 2.5 Flash",
+         "google/gemini-2.5-flash-lite": "2.5 Flash-Lite",
+         "deepseek/deepseek-chat-v3.1": "DeepSeek V3.1",
+         "anthropic/claude-haiku-4.5": "Haiku 4.5",
+         "meta-llama/llama-4-maverick": "Llama-4 Maverick",
+         "mistralai/mistral-small-3.2-24b-instruct": "Mistral Small",
+         "openai/gpt-4o-mini": "GPT-4o-mini"}
 
 
 def main():
