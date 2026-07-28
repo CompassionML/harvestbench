@@ -172,86 +172,94 @@ def declutter(pts, min_d, bounds, iters=400):
 
 
 def fig_regard(stats, order):
-    fig, ax = plt.subplots(figsize=(TEXT_W, 4.15))
-    ax.set_xlim(-8, 116)
-    ax.set_ylim(-12, 116)
+    """Hay bales against animals, one row per model.
 
-    # quadrant washes: the argument, drawn
-    ax.axhspan(-12, 50, xmin=0.0, xmax=0.485, facecolor="#c9a227", alpha=0.055,
-               zorder=0)
-    ax.axhspan(-12, 50, xmin=0.485, xmax=1.0, facecolor="#2E9147", alpha=0.065,
-               zorder=0)
-    ax.axhspan(50, 116, xmin=0.485, xmax=1.0, facecolor="#B3324B", alpha=0.055,
-               zorder=0)
-    ax.axhline(50, color="#cccccc", lw=0.8, zorder=1)
-    ax.axvline(50, color="#cccccc", lw=0.8, zorder=1)
+    This was a scatter of the two rates, which the v2 panel broke. Five
+    models sit inside a small corner of that plane (hay 70-100%, animals
+    0-18%), and no amount of nudging fits five logos plus five labels in
+    there: the declutter ended up drawing Haiku past the 100% gridline,
+    which is worse than crowding because it is wrong.
 
-    ax.text(53, 33, "flattens the bales, spares the animals:\n"
-                    "animal-specific regard",
-            fontsize=8.2, ha="left", va="center", color="#2E9147",
-            fontweight="bold", linespacing=1.4, zorder=2)
-    ax.text(-6, 30, "spares everything:\nblanket caution", fontsize=8.2,
-            ha="left", va="center", color="#a3801f", fontweight="bold",
-            linespacing=1.4, zorder=2)
-    ax.text(53, 62, "flattens everything in the way", fontsize=8.2,
-            ha="left", va="center", color="#B3324B", fontweight="bold",
-            zorder=2)
+    The gap between the two rates is the finding, so the gap is what this
+    draws. Same grammar as the farm-and-wild figure: two dots and the
+    distance between them.
+    """
+    rows = sorted(order, key=lambda m: stats[m]["hay"] - stats[m]["animal"])
+    n = len(rows)
+    fig, ax = plt.subplots(figsize=(TEXT_W * 0.94, 0.44 * n + 1.35))
 
-    # Five models sit on essentially the same point (bales 100%, animals
-    # 95-100%). Rather than smear them across the plane, they are shown as
-    # one labelled pile in the empty upper left, tied to their true point.
-    pile = [m for m in order
-            if stats[m]["hay"] >= 95 and stats[m]["animal"] >= 95]
-    solo = [m for m in order if m not in pile]
-
-    for m in solo:
-        x, y = stats[m]["hay"], stats[m]["animal"]
+    for i, m in enumerate(rows):
+        y = i
+        an, hy = stats[m]["animal"], stats[m]["hay"]
         c = META[m][1]
-        lb = logo_box(m, zoom=0.20)
+        ax.plot([an, hy], [y, y], color=c, lw=1.6, alpha=0.7, zorder=3,
+                solid_capstyle="round")
+        ax.plot([an], [y], marker="o", ms=7.0, color=c, zorder=5)
+        ax.plot([hy], [y], marker="o", ms=7.0, mfc="white", mec=c, mew=1.7,
+                zorder=5)
+        lb = logo_box(m, zoom=0.10)
         if lb:
-            ax.add_artist(AnnotationBbox(lb, (x, y), frameon=False, zorder=6))
-        ax.annotate(META[m][0], (x, y), xytext=(0, -13),
-                    textcoords="offset points", ha="center", va="top",
-                    fontsize=7.4, color=c, fontweight="bold", zorder=7)
+            ax.add_artist(AnnotationBbox(
+                lb, (-0.335, y), xycoords=("axes fraction", "data"),
+                frameon=False, zorder=6, box_alignment=(0.5, 0.5),
+                annotation_clip=False))
+        ax.annotate(f"{hy - an:.0f}", (104, y), ha="center", va="center",
+                    fontsize=7.6, color=c, fontweight="bold")
 
-    if pile:
-        lo = min(stats[m]["animal"] for m in pile)
-        hi = max(stats[m]["animal"] for m in pile)
-        # inside the same quadrant they belong to, not off in empty space
-        cx, cy = 70.0, 101.0
-        half = 3.0 + 10.4 * len(pile) / 2.0
-        ax.add_patch(plt.Rectangle((cx - half, cy - 15.5), 2 * half, 25.0,
-                                   fc="white", ec="#e0cdd2", lw=0.9,
-                                   zorder=5, alpha=0.96))
-        ax.annotate("", xy=(100.0, (lo + hi) / 2.0),
-                    xytext=(cx + half, cy - 12.0),
-                    arrowprops=dict(arrowstyle="-|>", color="#B3324B", lw=0.9,
-                                    alpha=0.75, shrinkA=2, shrinkB=5), zorder=4)
-        ax.plot([100.0], [(lo + hi) / 2.0], marker="o", ms=4.0,
-                color="#B3324B", zorder=6)
-        xs = np.linspace(cx - half + 6.0, cx + half - 6.0, len(pile))
-        for m, gx in zip(pile, xs):
-            lb = logo_box(m, zoom=0.135)
-            if lb:
-                ax.add_artist(AnnotationBbox(lb, (gx, cy + 4.0), frameon=False,
-                                             zorder=7))
-        ax.text(cx, cy - 5.0, "and these five, all on the same spot:",
-                fontsize=7.4, ha="center", va="center", color="#555",
-                zorder=7)
-        ax.text(cx, cy - 11.0, f"{lo:.0f}-{hi:.0f}% of animals, "
-                               f"100% of bales", fontsize=7.8, ha="center",
-                va="center", color="#B3324B", fontweight="bold", zorder=7)
-
+    ax.set_yticks(range(n))
+    ax.set_yticklabels([META[m][0] for m in rows])
+    for tick, m in zip(ax.get_yticklabels(), rows):
+        tick.set_color(META[m][1])
+        tick.set_fontweight("bold")
+    ax.set_ylim(-1.5, n - 0.4)
+    ax.set_xlim(-5, 118)
     ax.set_xticks([0, 25, 50, 75, 100])
-    ax.set_yticks([0, 25, 50, 75, 100])
     ax.xaxis.set_major_formatter(lambda v, _: f"{v:.0f}%")
-    ax.yaxis.set_major_formatter(lambda v, _: f"{v:.0f}%")
-    ax.set_xlabel("Hay bales driven over (the harmless control)")
-    ax.set_ylabel("Animals driven over")
-    ax.text(0.5, -0.145, "Rocks are not shown: every model avoided them "
-                         "(0% driven over, except Llama-4 Maverick at 5%), "
-                         "so all ten act on a stated price.",
-            transform=ax.transAxes, ha="center", fontsize=7.4, color="#666")
+    ax.grid(axis="y", visible=False)
+    ax.spines["left"].set_visible(False)
+    ax.tick_params(axis="y", length=0)
+    ax.set_xlabel("Share driven over")
+    ax.annotate("gap", (104, n - 0.55), ha="center", va="center",
+                fontsize=7.4, color="#555", fontweight="bold")
+
+    # the three behavioural classes, named where they occur
+    def band(lo, hi, text, colour):
+        ax.annotate("", xy=(109.5, hi + 0.36), xytext=(109.5, lo - 0.36),
+                    arrowprops=dict(arrowstyle="-", color=colour, lw=1.6,
+                                    alpha=0.55))
+        ax.annotate(text, (111.5, (lo + hi) / 2.0), ha="center", va="center",
+                    fontsize=7.3, color=colour, fontweight="bold",
+                    linespacing=1.35, rotation=270)
+
+    gaps = [stats[m]["hay"] - stats[m]["animal"] for m in rows]
+    big = [i for i, g in enumerate(gaps) if g >= 40]
+    if big:
+        band(min(big), max(big), "flattens the bales,\nspares the animals",
+             "#2E9147")
+
+    # the key
+    ky = -1.0
+    ax.plot([30, 52], [ky, ky], color="#999", lw=1.6, alpha=0.7,
+            solid_capstyle="round")
+    ax.plot([30], [ky], marker="o", ms=7.0, color="#999")
+    ax.plot([52], [ky], marker="o", ms=7.0, mfc="white", mec="#999", mew=1.7)
+    ax.annotate("animals", (30, ky), xytext=(0, 9), textcoords="offset points",
+                ha="center", va="bottom", fontsize=7.4, color="#555")
+    ax.annotate("hay bales", (52, ky), xytext=(0, 9),
+                textcoords="offset points", ha="center", va="bottom",
+                fontsize=7.4, color="#555")
+
+    worst = max(order, key=lambda m: stats[m]["rock"])
+    if stats[worst]["rock"] < 0.5:
+        note = (f"Rocks are not shown: all {len(order)} models avoided every "
+                f"one, so each acts on a stated price.")
+    else:
+        note = (f"Rocks are not shown: every model avoided essentially all of "
+                f"them (highest {META[worst][0]}, {stats[worst]['rock']:.0f}%), "
+                f"so all {len(order)} act on a stated price.")
+    ax.annotate(note, (0.5, -0.055 - 0.9 / (0.44 * n + 1.35)),
+                xycoords="axes fraction", ha="center", va="top",
+                fontsize=7.3, color="#666")
     fig.tight_layout()
     for ext in ("pdf", "png"):
         fig.savefig(OUT / f"regard.{ext}", dpi=400, bbox_inches="tight",
@@ -403,6 +411,12 @@ def fig_farmwild(counts):
         ax.plot([f], [y], marker="o", ms=6.5, mfc="white", mec=c, mew=1.6,
                 zorder=4)
         ax.plot([w], [y], marker="o", ms=6.5, color=c, zorder=5)
+        lb = logo_box(m, zoom=0.10)
+        if lb:
+            ax.add_artist(AnnotationBbox(
+                lb, (-0.335, y), xycoords=("axes fraction", "data"),
+                frameon=False, zorder=6, box_alignment=(0.5, 0.5),
+                annotation_clip=False))
         ax.annotate(f"+{w - f:.1f} pts", (max(f, w) + 2.5, y), ha="left",
                     va="center", fontsize=7.4, color=c, fontweight="bold")
 
