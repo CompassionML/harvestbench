@@ -379,88 +379,62 @@ def fig_harvest(stats, order):
 
 
 def fig_farmwild(counts):
-    """Odds of being driven over, wildlife against farm stock, per model.
+    """Farm rate against wild rate, one row per model.
 
-    A scatter of the two rates was the obvious plot and the wrong one:
-    seven of the nine models sit within a few points of the origin, so the
-    plot was a cluster in one corner and the declutter pass moved labels so
-    far from their true positions that GPT-5.6 Sol appeared at 20% when its
-    farm rate is 0.6%.
-
-    A forest plot fits the actual claim, which is stratified: every model
-    leans the same way, and the pooled effect is what carries it. Zero
-    cells (Terra kills no farm animals at all) get the Haldane-Anscombe
-    correction of 0.5 added to every cell, which is why its interval is so
-    wide.
+    Two earlier attempts were worse. A scatter put seven of nine models in
+    one corner and the declutter pass moved labels far enough from their
+    true positions to mislead. A forest plot of odds ratios read clearly
+    but priced the finding in a statistic the audience should not have to
+    decode. This is the plain version: two percentages and the gap between
+    them, on one axis, with every arrow pointing the same way.
     """
-    rows = [m for m in counts]
-    rows.sort(key=lambda m: counts[m][0])          # by odds ratio
+    rows = sorted(counts, key=lambda m: counts[m][0] / counts[m][1])
     n = len(rows)
-    fig, ax = plt.subplots(figsize=(TEXT_W * 0.9, 0.42 * n + 1.9))
+    fig, ax = plt.subplots(figsize=(TEXT_W * 0.92, 0.42 * n + 1.0))
 
-    # Mantel-Haenszel pooled estimate, the quantity the text actually
-    # reports. Robins-Breslow-Greenland variance for the interval.
-    num = den = 0.0
-    sR = sS = sPR = sPSQR = sQS = 0.0
-    for m in rows:
-        _, _, _, fa, fn, wa, wn = counts[m]
-        a, b, c_, d = wa, wn - wa, fa, fn - fa
-        N = a + b + c_ + d
-        R, S = a * d / N, b * c_ / N
-        num += R
-        den += S
-        P, Q = (a + d) / N, (b + c_) / N
-        sR += R; sS += S; sPR += P * R; sPSQR += P * S + Q * R; sQS += Q * S
-    mh = num / den
-    var = (sPR / (2 * sR**2) + sPSQR / (2 * sR * sS) + sQS / (2 * sS**2))
-    mh_lo, mh_hi = np.exp(np.log(mh) - 1.96 * np.sqrt(var)),         np.exp(np.log(mh) + 1.96 * np.sqrt(var))
-
-    ax.axvline(1.0, color="#888", lw=1.0, zorder=1)
-    ax.axvspan(1.0, 400, facecolor="#B3324B", alpha=0.04, zorder=0)
     for i, m in enumerate(rows):
         y = n - 1 - i
-        orr, lo, hi, fa, fn, wa, wn = counts[m]
+        fa, fn, wa, wn = counts[m]
+        f, w = 100.0 * fa / fn, 100.0 * wa / wn
         c = META[m][1]
-        ax.plot([lo, hi], [y, y], color=c, lw=1.6, alpha=0.75, zorder=3,
-                solid_capstyle="round")
-        for e in (lo, hi):
-            ax.plot([e, e], [y - 0.13, y + 0.13], color=c, lw=1.3, zorder=3)
-        lb = logo_box(m, zoom=0.135)
-        if lb:
-            ax.add_artist(AnnotationBbox(lb, (orr, y), frameon=False, zorder=6))
-        ax.annotate(f"{wa}/{wn} vs {fa}/{fn}", (1500, y), ha="right",
-                    va="center", fontsize=7.0, color="#666", zorder=4)
+        ax.annotate("", xy=(w, y), xytext=(f, y),
+                    arrowprops=dict(arrowstyle="-|>", color=c, lw=1.5,
+                                    alpha=0.75, shrinkA=0, shrinkB=0))
+        ax.plot([f], [y], marker="o", ms=6.5, mfc="white", mec=c, mew=1.6,
+                zorder=4)
+        ax.plot([w], [y], marker="o", ms=6.5, color=c, zorder=5)
+        ax.annotate(f"+{w - f:.1f} pts", (max(f, w) + 2.5, y), ha="left",
+                    va="center", fontsize=7.4, color=c, fontweight="bold")
 
-    yp = -1.05
-    ax.plot([mh_lo, mh, mh_hi, mh, mh_lo], [yp, yp + 0.22, yp, yp - 0.22, yp],
-            color="#222", lw=1.2, zorder=6)
-    ax.fill([mh_lo, mh, mh_hi, mh], [yp, yp + 0.22, yp, yp - 0.22],
-            color="#222", zorder=6)
-    ax.annotate(f"pooled {mh:.2f} [{mh_lo:.2f}, {mh_hi:.2f}]", (1500, yp),
-                ha="right", va="center", fontsize=7.4, color="#222",
-                fontweight="bold", zorder=6)
-
-    ax.set_yticks(list(range(n)) + [yp])
-    ax.set_yticklabels([META[rows[n - 1 - i]][0] for i in range(n)]
-                       + ["all nine (MH)"])
+    ax.set_yticks(range(n))
+    ax.set_yticklabels([META[rows[n - 1 - i]][0] for i in range(n)])
     for tick, i in zip(ax.get_yticklabels(), range(n)):
         tick.set_color(META[rows[n - 1 - i]][1])
         tick.set_fontweight("bold")
-    ax.set_ylim(-1.9, n - 0.3)
-    ax.set_xscale("log")
-    ax.set_xlim(0.28, 1700)
-    ax.set_xticks([0.5, 1, 2, 5, 10, 50, 150])
-    ax.set_xbound(0.28, 1700)
-    ax.xaxis.set_major_formatter(lambda v, _: f"{v:g}")
-    ax.minorticks_off()
+    ax.set_ylim(-0.6, n - 0.35)
+    ax.set_xlim(-4, 122)
+    ax.set_xticks([0, 25, 50, 75, 100])
+    ax.xaxis.set_major_formatter(lambda v, _: f"{v:.0f}%")
     ax.grid(axis="y", visible=False)
     ax.spines["left"].set_visible(False)
     ax.tick_params(axis="y", length=0)
-    ax.set_xlabel("Odds of being driven over: wildlife vs farm stock "
-                  "(log scale, 95% CI)")
-    ax.annotate("wildlife killed more often $\\rightarrow$", (1.25, -0.72),
-                fontsize=7.8, color="#B3324B", fontweight="bold",
-                ha="left", va="center")
+    ax.set_xlabel("Share of animals driven over")
+
+    # the key, drawn rather than described, in the empty top-right space
+    # (the three most merciful models sit near 0%, so nothing is there)
+    kx, ky = 62.0, n - 1.15
+    ax.annotate("", xy=(kx + 16, ky), xytext=(kx, ky),
+                arrowprops=dict(arrowstyle="-|>", color="#777", lw=1.5,
+                                shrinkA=0, shrinkB=0))
+    ax.plot([kx], [ky], marker="o", ms=6.5, mfc="white", mec="#777", mew=1.6)
+    ax.plot([kx + 16], [ky], marker="o", ms=6.5, color="#777")
+    ax.annotate("farm stock", (kx, ky), xytext=(0, 9),
+                textcoords="offset points", ha="center", va="bottom",
+                fontsize=7.4, color="#555")
+    ax.annotate("wildlife", (kx + 16, ky), xytext=(0, 9),
+                textcoords="offset points", ha="center", va="bottom",
+                fontsize=7.4, color="#555")
+
     fig.tight_layout()
     for ext in ("pdf", "png"):
         fig.savefig(OUT / f"farmwild.{ext}", dpi=400, bbox_inches="tight",
@@ -496,19 +470,8 @@ def main():
     fig_regard(stats, order)
     fig_price(stats, order)
     fig_harvest(stats, order)
-    # per-model odds ratios for the forest plot, with the Haldane-Anscombe
-    # correction so zero cells still yield a finite interval
-    fw = {}
-    for m in order:
-        fa, fn = own_cont[m], own_tot[m]
-        wa, wn = wild_cont[m], wild_tot[m]
-        if not fn or not wn:
-            continue
-        a, b, c_, d = wa + .5, wn - wa + .5, fa + .5, fn - fa + .5
-        orr = (a / b) / (c_ / d)
-        se = np.sqrt(1/a + 1/b + 1/c_ + 1/d)
-        fw[m] = (orr, np.exp(np.log(orr) - 1.96*se),
-                 np.exp(np.log(orr) + 1.96*se), fa, fn, wa, wn)
+    fw = {m: (own_cont[m], own_tot[m], wild_cont[m], wild_tot[m])
+          for m in order if own_tot.get(m) and wild_tot.get(m)}
     fig_farmwild(fw)
     print("figures ->", OUT)
     for m in order:
