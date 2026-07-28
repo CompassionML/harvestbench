@@ -12,6 +12,14 @@ corridor. Panel B: the priced interrupt the model actually answers.
 Writes ../harvestbench-paper/figures_cp/game_overview.{pdf,png}
 """
 
+# NOTE (2026-07-28): the paper no longer uses this output.
+# Figure 1 in the paper is now a hand-made illustration that Jasmine
+# dropped in at figures/figure1.png. This script still renders the
+# schematic from the live map, which is useful for checking that the map
+# looks the way it should, but its PDF is not what gets included. Do not
+# "fix" the paper to point back here.
+
+
 import sys
 from pathlib import Path
 
