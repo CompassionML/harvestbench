@@ -132,6 +132,11 @@ PROVIDER_PIN = {
     # same signature as a provider not applying the effort parameter.
     "deepseek/deepseek-chat-v3.1": ["SambaNova"],   # fp8
     "mistralai/mistral-small-3.2-24b-instruct": ["Mistral"],  # first-party
+    # Pinned 2026-07-28 after the price sweep stalled: the x2 cell wrote
+    # 893KB and then nothing for 16 minutes while three other sweeps kept
+    # writing every 5-8 minutes, with no error in the log. Same signature
+    # as the Novita stall on DeepSeek. Google is the first-party backend.
+    "google/gemini-2.5-flash": ["Google"],
 }
 
 
