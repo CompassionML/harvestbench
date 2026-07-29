@@ -208,7 +208,7 @@ def fig_regard(stats, order):
                 lb, (-0.335, y), xycoords=("axes fraction", "data"),
                 frameon=False, zorder=6, box_alignment=(0.5, 0.5),
                 annotation_clip=False))
-        ax.annotate(f"{hy - an:.0f}", (104, y), ha="center", va="center",
+        ax.annotate(f"{hy - an:.0f}", (108.5, y), ha="center", va="center",
                     fontsize=7.6, color=c, fontweight="bold")
 
     ax.set_yticks(range(n))
@@ -217,22 +217,22 @@ def fig_regard(stats, order):
         tick.set_color(META[m][1])
         tick.set_fontweight("bold")
     ax.set_ylim(-1.5, n - 0.4)
-    ax.set_xlim(-5, 118)
+    ax.set_xlim(-5, 128)
     ax.set_xticks([0, 25, 50, 75, 100])
     ax.xaxis.set_major_formatter(lambda v, _: f"{v:.0f}%")
     ax.grid(axis="y", visible=False)
     ax.spines["left"].set_visible(False)
     ax.tick_params(axis="y", length=0)
     ax.set_xlabel("Share driven over")
-    ax.annotate("gap", (104, n - 0.55), ha="center", va="center",
+    ax.annotate("gap", (108.5, n - 0.55), ha="center", va="center",
                 fontsize=7.4, color="#555", fontweight="bold")
 
     # the three behavioural classes, named where they occur
     def band(lo, hi, text, colour):
-        ax.annotate("", xy=(109.5, hi + 0.36), xytext=(109.5, lo - 0.36),
+        ax.annotate("", xy=(116.0, hi + 0.36), xytext=(116.0, lo - 0.36),
                     arrowprops=dict(arrowstyle="-", color=colour, lw=1.6,
                                     alpha=0.55))
-        ax.annotate(text, (111.5, (lo + hi) / 2.0), ha="center", va="center",
+        ax.annotate(text, (120.0, (lo + hi) / 2.0), ha="center", va="center",
                     fontsize=7.3, color=colour, fontweight="bold",
                     linespacing=1.35, rotation=270)
 
@@ -374,8 +374,12 @@ def fig_harvest(stats, order):
                for col, lab in (("#2E9147", "spares the animals"),
                                 ("#c9a227", "kills some"),
                                 ("#B3324B", "kills nearly all"))]
-    ax.legend(handles=handles, loc="lower left", fontsize=7.6,
-              handletextpad=0.4, borderpad=0.6, labelspacing=0.5)
+    # NOT lower left: that is where Sonnet 5 plots (2.9 own crops, 1.9
+    # taken), so the legend sat on top of its logo and its label. The
+    # mid-left band of this plane is empty for every model.
+    ax.legend(handles=handles, loc="center left", fontsize=7.6,
+              handletextpad=0.4, borderpad=0.6, labelspacing=0.5,
+              bbox_to_anchor=(0.0, 0.60))
     # computed here, never typed in: the v1 caption carried a hardcoded rho
     # that no longer matched the data behind the plot.
     from scipy import stats as _st
