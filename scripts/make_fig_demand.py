@@ -110,16 +110,12 @@ def main():
             ys = [100.0 * d[x][0] / d[x][1] for x in xs]
             c = META[m][1]
             ax.plot(fuel, ys, color=c, lw=1.7, alpha=0.88, zorder=3,
-                    solid_capstyle="round")
+                    solid_capstyle="round", label=META[m][0])
             ax.plot(fuel, ys, marker="o", ms=4.5, color=c, ls="none",
                     zorder=4)
-            ax.annotate(META[m][0], (fuel[-1], ys[-1]), xytext=(5, 0),
-                        textcoords="offset points", ha="left", va="center",
-                        fontsize=6.6, color=c, fontweight="bold",
-                        annotation_clip=False)
 
         ax.set_xticks(ticks)
-        ax.set_xlim(min(ticks) - 0.5, max(ticks) + 4.2)
+        ax.set_xlim(min(ticks) - 0.4, max(ticks) + 0.4)
         ax.set_xlabel("What a swerve costs (fuel)")
         ax.axvline(BASE_SWERVE, color="#bbbbbb", lw=0.9, ls="--", zorder=1)
         if logy:
@@ -131,17 +127,22 @@ def main():
             ax.set_title("log scale: the slope is the elasticity",
                          fontsize=8.0, color="#555", pad=6)
         else:
-            ax.set_ylim(-2, max(100.0 * d[x][0] / d[x][1]
-                                for d in pts.values() for x in d) * 1.12)
+            ax.set_ylim(-2, 44)
             ax.yaxis.set_major_formatter(lambda v, _: f"{v:.0f}%")
             ax.set_ylabel("Animals driven over")
             ax.set_title("linear scale: what the rise costs in animals",
                          fontsize=8.0, color="#555", pad=6)
 
-    axes[0].annotate("the price\nused for\nthe board", (BASE_SWERVE, 0),
-                     xytext=(4, 14), textcoords="offset points", ha="left",
-                     va="bottom", fontsize=6.6, color="#999",
-                     linespacing=1.3)
+    # One shared legend outside the axes. Inline end-of-line labels do not
+    # work here: the curves stop at different prices, so the labels land at
+    # different x and scatter across the plot on top of other lines.
+    h, lab = axes[0].get_legend_handles_labels()
+    fig.legend(h, lab, loc="lower center", ncol=len(order), frameon=False,
+               fontsize=7.4, bbox_to_anchor=(0.5, -0.04), columnspacing=1.6,
+               handlelength=1.6)
+    axes[0].annotate("board price", (BASE_SWERVE, 43), xytext=(4, 0),
+                     textcoords="offset points", ha="left", va="top",
+                     fontsize=6.8, color="#999")
     fig.tight_layout()
     for ext in ("pdf", "png"):
         fig.savefig(OUT / f"demand.{ext}", dpi=400, bbox_inches="tight",

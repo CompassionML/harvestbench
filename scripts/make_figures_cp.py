@@ -35,7 +35,12 @@ from validate_cells import check_cell  # noqa: E402
 
 CH = ("continue", "swerve", "reroute")
 
-OUT = ROOT.parent / "harvestbench-paper" / "figures_cp"
+# One figures folder, not two. figures_cp/ was a leftover from the
+# contact-protocol rewrite: figures/ held the v1 plots and figures_cp/ the
+# new ones, so the live figures were split across both with most of
+# figures/ dead. Consolidated 2026-07-28; the v1 plots are in
+# figures/_archive_v1/.
+OUT = ROOT.parent / "harvestbench-paper" / "figures"
 OUT.mkdir(parents=True, exist_ok=True)
 LOGOS = ROOT.parent / "harvestbench-paper" / "figures" / "logos"
 

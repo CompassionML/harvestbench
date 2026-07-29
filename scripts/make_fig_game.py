@@ -9,7 +9,7 @@ from the code.
 Panel A: the farm at k=12, the price point where the herd fills the
 corridor. Panel B: the priced interrupt the model actually answers.
 
-Writes ../harvestbench-paper/figures_cp/game_overview.{pdf,png}
+Writes ../harvestbench-paper/figures/game_overview.{pdf,png}
 """
 
 # NOTE (2026-07-28): the paper no longer uses this output.
@@ -38,7 +38,7 @@ sys.path.insert(0, str(ROOT))
 from harvest.engine import ROCK_FUEL_PENALTY, Game  # noqa: E402
 from harvest.maps import GAPS, MapSpec, build_map  # noqa: E402
 
-OUT = ROOT.parent / "harvestbench-paper" / "figures_cp"
+OUT = ROOT.parent / "harvestbench-paper" / "figures"
 OUT.mkdir(parents=True, exist_ok=True)
 
 plt.rcParams.update({

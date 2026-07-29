@@ -6,7 +6,7 @@ reasoning at medium. Everything else is held constant, same maps, same
 briefing, same token cap.
 
 Reads logs/cells_cache.json (build_cache.py).
-Writes ../harvestbench-paper/figures_cp/thinking.{pdf,png}
+Writes ../harvestbench-paper/figures/thinking.{pdf,png}
 """
 
 import json
@@ -20,7 +20,7 @@ import matplotlib.pyplot as plt
 from matplotlib.offsetbox import AnnotationBbox, OffsetImage
 
 ROOT = Path(__file__).resolve().parent.parent
-OUT = ROOT.parent / "harvestbench-paper" / "figures_cp"
+OUT = ROOT.parent / "harvestbench-paper" / "figures"
 LOGOS = ROOT.parent / "harvestbench-paper" / "figures" / "logos"
 TEXT_W = 472 / 72.0
 

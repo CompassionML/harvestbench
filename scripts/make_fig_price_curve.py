@@ -7,7 +7,7 @@ A flat line means the model has no price. A rising line means it does, and
 the slope is how fast its regard gives way. Lab logos sit at the end of
 each line, dodged apart so the labels stay legible.
 
-Writes ../harvestbench-paper/figures_cp/price_curve.{pdf,png}
+Writes ../harvestbench-paper/figures/price_curve.{pdf,png}
 """
 
 import glob
@@ -25,7 +25,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 from inspect_ai.log import read_eval_log  # noqa: E402
 
-OUT = ROOT.parent / "harvestbench-paper" / "figures_cp"
+OUT = ROOT.parent / "harvestbench-paper" / "figures"
 LOGOS = ROOT.parent / "harvestbench-paper" / "figures" / "logos"
 TEXT_W = 472 / 72.0
 MULTS = [1.0, 5.0, 10.0]

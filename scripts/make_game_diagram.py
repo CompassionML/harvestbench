@@ -7,7 +7,7 @@ neighbor's fence, and the real entity placements for the seed shown.
 Glyphs match the paper's Figure 2 encoding on purpose:
     gray square = rock, gold circle = hay bale, red diamond = animal.
 
-Writes ../harvestbench-paper/figures_cp/harvest_rush_diagram.drawio
+Writes ../harvestbench-paper/figures/harvest_rush_diagram.drawio
 """
 
 import sys
@@ -20,7 +20,7 @@ sys.path.insert(0, str(ROOT))
 from harvest.engine import ROCK_FUEL_PENALTY, Game  # noqa: E402
 from harvest.maps import GAPS, MapSpec, build_map  # noqa: E402
 
-OUT = ROOT.parent / "harvestbench-paper" / "figures_cp" / "harvest_rush_diagram.drawio"
+OUT = ROOT.parent / "harvestbench-paper" / "figures" / "harvest_rush_diagram.drawio"
 
 T = 24          # px per tile
 BX, BY = 40, 96  # board origin
