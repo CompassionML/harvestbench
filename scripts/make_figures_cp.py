@@ -30,6 +30,7 @@ import numpy as np
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "scripts"))
+from glyphs import glyph_image  # noqa: E402
 from panel import EXCLUDED, canonical  # noqa: E402
 from validate_cells import check_cell  # noqa: E402
 
@@ -71,6 +72,33 @@ META = {
     "mistralai/mistral-small-3.2-24b-instruct": ("Mistral Small", "#C25CA4", "mistral.png"),
     "openai/gpt-4o-mini": ("GPT-4o-mini", "#93912B", "openai.png"),
 }
+
+
+# The bale is a solid disc and the animal is an open silhouette, so equal
+# frames do not read as equal weight. Tuned by eye against the map.
+ANIMAL_ZOOM = 0.082
+HAY_ZOOM = 0.058
+
+_GLYPHS = {}
+
+
+def glyph_box(kind, colour=None, zoom=0.075):
+    """A Harvest Rush entity glyph as a marker.
+
+    Same shapes the game map uses, so the reader who has seen Figure 1
+    knows what a row is about without reading the key. Rendering is cached
+    because it costs a figure each and the panel reuses them per row.
+    """
+    key = (kind, colour)
+    if key not in _GLYPHS:
+        _GLYPHS[key] = glyph_image(kind, colour)
+    return OffsetImage(_GLYPHS[key], zoom=zoom)
+
+
+def place_glyph(ax, kind, x, y, colour=None, zoom=0.075, z=5):
+    ax.add_artist(AnnotationBbox(
+        glyph_box(kind, colour, zoom), (x, y), frameon=False, zorder=z,
+        box_alignment=(0.5, 0.5), annotation_clip=False))
 
 
 def logo_box(mid, zoom=0.15, alpha=1.0):
@@ -199,9 +227,15 @@ def fig_regard(stats, order):
         c = META[m][1]
         ax.plot([an, hy], [y, y], color=c, lw=1.6, alpha=0.7, zorder=3,
                 solid_capstyle="round")
-        ax.plot([an], [y], marker="o", ms=7.0, color=c, zorder=5)
-        ax.plot([hy], [y], marker="o", ms=7.0, mfc="white", mec=c, mew=1.7,
-                zorder=5)
+        # the map's own glyphs rather than filled/hollow dots: the shape
+        # says which entity, so the reader does not hold a key in mind.
+        # The animal is tinted to the model's colour to keep the row
+        # identifiable; the bale keeps its straw colour throughout.
+        # animal above the bale: where the gap is 0 (Sol, GPT-4o-mini) the
+        # two land on the same point, and a solid disc drawn last hides the
+        # animal completely, so the row looks like it has one marker.
+        place_glyph(ax, "hay", hy, y, zoom=HAY_ZOOM, z=4)
+        place_glyph(ax, "animal", an, y, colour=c, zoom=ANIMAL_ZOOM, z=6)
         lb = logo_box(m, zoom=0.10)
         if lb:
             ax.add_artist(AnnotationBbox(
@@ -246,8 +280,9 @@ def fig_regard(stats, order):
     ky = -1.0
     ax.plot([30, 52], [ky, ky], color="#999", lw=1.6, alpha=0.7,
             solid_capstyle="round")
-    ax.plot([30], [ky], marker="o", ms=7.0, color="#999")
-    ax.plot([52], [ky], marker="o", ms=7.0, mfc="white", mec="#999", mew=1.7)
+    place_glyph(ax, "hay", 52, ky, zoom=HAY_ZOOM, z=7)
+    place_glyph(ax, "animal", 30, ky, colour="#8a8a8a",
+                zoom=ANIMAL_ZOOM, z=7)
     ax.annotate("animals", (30, ky), xytext=(0, 9), textcoords="offset points",
                 ha="center", va="bottom", fontsize=7.4, color="#555")
     ax.annotate("hay bales", (52, ky), xytext=(0, 9),
