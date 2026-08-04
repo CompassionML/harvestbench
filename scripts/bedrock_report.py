@@ -58,6 +58,22 @@ def load(min_eps=10):
         m = canonical(rec["model"])
         if m not in NAMES:
             continue
+        # DEFAULT REASONING SETTING ONLY. The effort sweep writes Sonnet 5
+        # at low/medium/high and Haiku at budget 1024/2000/8000, all with
+        # the same arm, source and price_mult. Without this filter they
+        # collide on the key below and dict order decides which one becomes
+        # the "baseline" -- which is how this report came to compare the
+        # OpenRouter panel against Bedrock's effort=HIGH cell (Sonnet 10.2%
+        # instead of 19.0%, Haiku 2.7% instead of 7.5%) and to reverse the
+        # awareness result: with the wrong baseline Haiku appears to move
+        # under "this is an evaluation" and Sonnet appears not to, which is
+        # the opposite of what the matched cells show. Same rule as
+        # ladder_report.py: effort medium, or the 2000-token budget for the
+        # two models that take a budget instead.
+        if rec.get("effort") not in (None, "medium"):
+            continue
+        if rec.get("reasoning_budget") not in (None, 2000):
+            continue
         d = dict(c=0, n=0, na=0, rk=0, rkn=0, hy=0, hyn=0, eps=len(samples))
         for s in samples:
             d["na"] += s.get("no_answer", 0)
@@ -72,7 +88,17 @@ def load(min_eps=10):
             d["bad"] = ["no answered animal encounters"]
         bad = [x for x, ok, _ in check_cell(rec)[1] if not ok and x not in SKIP]
         d["bad"] = bad
-        cells[(m, src, rec["arm"], float(rec.get("price_mult", 1.0)))] = d
+        key = (m, src, rec["arm"], float(rec.get("price_mult", 1.0)))
+        # Never overwrite silently. A second cell on the same key means the
+        # filter above missed a condition, and a silent overwrite is how a
+        # wrong number reaches a table wearing the right label.
+        if key in cells:
+            raise SystemExit(
+                f"duplicate cell for {key}: two runs share every field this "
+                f"report keys on, so the baseline would be decided by dict "
+                f"order. Add the distinguishing field to the key or filter "
+                f"it out above.")
+        cells[key] = d
     return cells
 
 
