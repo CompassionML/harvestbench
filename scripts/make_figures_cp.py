@@ -30,7 +30,6 @@ import numpy as np
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "scripts"))
-from glyphs import glyph_image  # noqa: E402
 from panel import EXCLUDED, canonical  # noqa: E402
 from validate_cells import check_cell  # noqa: E402
 
@@ -74,30 +73,29 @@ META = {
 }
 
 
-# The bale is a solid disc and the animal is an open silhouette, so equal
-# frames do not read as equal weight. Tuned by eye against the map.
-ANIMAL_ZOOM = 0.082
-HAY_ZOOM = 0.058
+# The very icons Figure 1 uses, cut out of it with the background removed
+# (figures/icons/). Not a redraw: a reader who has seen the game map should
+# recognise the same sheep and the same bale, and a second drawing of them
+# would drift from the first.
+ICONS = ROOT.parent / "harvestbench-paper" / "figures" / "icons"
+# The bale is a dense round object and the sheep is a tall thin one, so
+# equal frames do not read as equal weight. Tuned by eye.
+ANIMAL_ZOOM = 0.115
+HAY_ZOOM = 0.105
 
-_GLYPHS = {}
-
-
-def glyph_box(kind, colour=None, zoom=0.075):
-    """A Harvest Rush entity glyph as a marker.
-
-    Same shapes the game map uses, so the reader who has seen Figure 1
-    knows what a row is about without reading the key. Rendering is cached
-    because it costs a figure each and the panel reuses them per row.
-    """
-    key = (kind, colour)
-    if key not in _GLYPHS:
-        _GLYPHS[key] = glyph_image(kind, colour)
-    return OffsetImage(_GLYPHS[key], zoom=zoom)
+_ICONS = {}
 
 
-def place_glyph(ax, kind, x, y, colour=None, zoom=0.075, z=5):
+def icon_box(kind, zoom):
+    """A Harvest Rush entity icon as a marker, cached across rows."""
+    if kind not in _ICONS:
+        _ICONS[kind] = plt.imread(str(ICONS / f"{kind}.png"))
+    return OffsetImage(_ICONS[kind], zoom=zoom)
+
+
+def place_icon(ax, kind, x, y, zoom, z=5):
     ax.add_artist(AnnotationBbox(
-        glyph_box(kind, colour, zoom), (x, y), frameon=False, zorder=z,
+        icon_box(kind, zoom), (x, y), frameon=False, zorder=z,
         box_alignment=(0.5, 0.5), annotation_clip=False))
 
 
@@ -227,15 +225,15 @@ def fig_regard(stats, order):
         c = META[m][1]
         ax.plot([an, hy], [y, y], color=c, lw=1.6, alpha=0.7, zorder=3,
                 solid_capstyle="round")
-        # the map's own glyphs rather than filled/hollow dots: the shape
+        # Figure 1's own icons rather than filled/hollow dots: the shape
         # says which entity, so the reader does not hold a key in mind.
-        # The animal is tinted to the model's colour to keep the row
-        # identifiable; the bale keeps its straw colour throughout.
+        # Row identity comes from the connector and the label, since a
+        # photographic sheep cannot carry the model's colour.
         # animal above the bale: where the gap is 0 (Sol, GPT-4o-mini) the
         # two land on the same point, and a solid disc drawn last hides the
         # animal completely, so the row looks like it has one marker.
-        place_glyph(ax, "hay", hy, y, zoom=HAY_ZOOM, z=4)
-        place_glyph(ax, "animal", an, y, colour=c, zoom=ANIMAL_ZOOM, z=6)
+        place_icon(ax, "hay", hy, y, HAY_ZOOM, z=4)
+        place_icon(ax, "animal", an, y, ANIMAL_ZOOM, z=6)
         lb = logo_box(m, zoom=0.10)
         if lb:
             ax.add_artist(AnnotationBbox(
@@ -280,9 +278,8 @@ def fig_regard(stats, order):
     ky = -1.0
     ax.plot([30, 52], [ky, ky], color="#999", lw=1.6, alpha=0.7,
             solid_capstyle="round")
-    place_glyph(ax, "hay", 52, ky, zoom=HAY_ZOOM, z=7)
-    place_glyph(ax, "animal", 30, ky, colour="#8a8a8a",
-                zoom=ANIMAL_ZOOM, z=7)
+    place_icon(ax, "hay", 52, ky, HAY_ZOOM, z=7)
+    place_icon(ax, "animal", 30, ky, ANIMAL_ZOOM, z=7)
     ax.annotate("animals", (30, ky), xytext=(0, 9), textcoords="offset points",
                 ha="center", va="bottom", fontsize=7.4, color="#555")
     ax.annotate("hay bales", (52, ky), xytext=(0, 9),
