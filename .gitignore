@@ -3,3 +3,11 @@ __pycache__/
 runs/
 .pytest_cache/
 logs/
+
+# Local launchers that hardcode credentials in plain text. run_batch.cmd
+# sets AWS_BEARER_TOKEN_BEDROCK inline and GitHub push protection blocked
+# it on 2026-08-04. This repo is PUBLIC. Committed launchers must read
+# secrets from the environment, the way scripts/launch_bedrock.ps1 does.
+scripts/run_batch.cmd
+scripts/run_batch_unattended.ps1
+scripts/probe_system.cmd

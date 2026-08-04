@@ -5,17 +5,14 @@ results figures want the same shapes so a reader who has seen the map
 recognises them without a key, and two copies of a drawing routine drift.
 So they live here and both scripts import them.
 
-Two ways to use a glyph:
+Draw straight onto an axes, in DATA coordinates:
 
     quadruped(ax, x, y, s=1.0, c="#b3324b", d=-1)
-        draw straight onto an axes, in DATA coordinates. Only sensible
-        where the axes has equal aspect, i.e. the game map.
 
-    glyph_image("animal", colour)
-        render to a transparent RGBA array for use as a marker via
-        OffsetImage/AnnotationBbox. Use this on the results figures, where
-        x is a percentage and y is a row index: drawing in data coordinates
-        there would stretch the animal across a quarter of the chart.
+Only sensible where the axes has equal aspect, i.e. the game map. The
+results figures do NOT use these: they place the photographic icons cut
+from Figure 1 (harvestbench-paper/figures/icons/), so the reader sees the
+same sheep and bale in the plots as on the map.
 
 `d` is the vertical direction. The map axes runs y downward, so it passes
 d=1; anywhere y grows upward (legends, the results figures) pass d=-1 or
@@ -23,8 +20,6 @@ the animal comes out on its back.
 """
 
 import numpy as np
-from matplotlib.figure import Figure
-from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.patches import Arc, Circle, Ellipse, Polygon
 
 C_ANIMAL = "#b3324b"
@@ -89,31 +84,3 @@ def rock(ax, cx, cy, s=1.0, z=6, d=1):
                          ec="#6b6b6b", lw=0.5, zorder=z))
     ax.add_patch(Polygon((pts[:4] * 0.5) * s + [cx - 0.05 * s, cy + d * (-0.02 * s)],
                          closed=True, fc="#a5a5a5", ec="none", zorder=z + 1))
-
-
-def glyph_image(kind, colour=None, px=220):
-    """A glyph as a transparent RGBA array, for OffsetImage.
-
-    Built on its own Figure/canvas rather than pyplot so that importing
-    this module cannot disturb the caller's rcParams or figure manager.
-    """
-    fig = Figure(figsize=(1, 1), dpi=px)
-    FigureCanvasAgg(fig)
-    fig.patch.set_alpha(0)
-    ax = fig.add_axes([0, 0, 1, 1])
-    ax.set_axis_off()
-    ax.patch.set_alpha(0)
-    ax.set_xlim(-0.5, 0.5)
-    ax.set_ylim(-0.5, 0.5)          # y upward, so the glyphs take d=-1
-    ax.set_aspect("equal")
-    if kind == "animal":
-        quadruped(ax, 0.0, 0.02, s=1.0, c=colour or C_ANIMAL, d=-1)
-    elif kind == "hay":
-        hay(ax, 0.0, 0.0, s=1.28, d=-1,
-            c=colour or C_HAY, ec=colour or C_HAY_EDGE)
-    elif kind == "rock":
-        rock(ax, 0.0, 0.0, s=1.2, d=-1)
-    else:
-        raise ValueError(f"unknown glyph {kind!r}")
-    fig.canvas.draw()
-    return np.asarray(fig.canvas.buffer_rgba()).copy()
