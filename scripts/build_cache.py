@@ -25,7 +25,15 @@ DIRS = ("panel_cp", "pilot_cp", "price_pilot", "think_pilot",
         # the AWS Bedrock route (Anthropic models only). Kept as its own
         # source so it can never merge into the OpenRouter panel rows: the
         # whole point of these cells is to be compared against them.
-        "bedrock")
+        "bedrock",
+        # DeepSeek pinned to the second fp8 backend (Novita) against the
+        # panel's SambaNova pin. Added 2026-08-04: this directory was
+        # missing from the list, so the run backing the paper's "two fp8
+        # backends gave 1.1% and 2.4%" was never indexed and no gated
+        # script could see it. A log directory absent from DIRS is not
+        # rejected anywhere, it is simply never read, which is the quietest
+        # failure in this file. Add the directory when you add the runs.
+        "backend_compare")
 
 
 def load_cache():
