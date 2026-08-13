@@ -475,20 +475,34 @@ def fig_farmwild(counts):
     ax.tick_params(axis="y", length=0)
     ax.set_xlabel("Share of animals driven over")
 
-    # the key, drawn rather than described, in the empty top-right space
-    # (the three most merciful models sit near 0%, so nothing is there)
-    kx, ky = 62.0, n - 1.15
-    ax.annotate("", xy=(kx + 16, ky), xytext=(kx, ky),
+    # The key sits in the empty top-right space (the three most merciful
+    # models sit near 0%, so nothing is there). It uses the animal photos
+    # where they exist, so a reader recognises the two groups without
+    # decoding hollow-against-solid. The markers on the rows stay as dots:
+    # several gaps here are under a point wide and two photos that close
+    # together would overlap into a smudge.
+    kx, ky = 58.0, n - 1.05
+    ax.annotate("", xy=(kx + 22, ky), xytext=(kx, ky),
                 arrowprops=dict(arrowstyle="-|>", color="#777", lw=1.5,
                                 shrinkA=0, shrinkB=0))
     ax.plot([kx], [ky], marker="o", ms=6.5, mfc="white", mec="#777", mew=1.6)
-    ax.plot([kx + 16], [ky], marker="o", ms=6.5, color="#777")
-    ax.annotate("farm stock", (kx, ky), xytext=(0, 9),
-                textcoords="offset points", ha="center", va="bottom",
-                fontsize=7.4, color="#555")
-    ax.annotate("wildlife", (kx + 16, ky), xytext=(0, 9),
-                textcoords="offset points", ha="center", va="bottom",
-                fontsize=7.4, color="#555")
+    ax.plot([kx + 22], [ky], marker="o", ms=6.5, color="#777")
+    # all or nothing: one photo and one bare label reads as a mistake, so if
+    # either icon is missing both ends fall back to the plain dot key
+    both = all((ICONS / f"{i}.png").exists() for i in ("animal", "wild"))
+    for x, label, icon in ((kx, "farmed animals", "animal"),
+                           (kx + 22, "wild animals", "wild")):
+        f = ICONS / f"{icon}.png"
+        dy = 9
+        if both and f.exists():
+            ax.add_artist(AnnotationBbox(
+                OffsetImage(plt.imread(str(f)), zoom=0.16), (x, ky),
+                xybox=(0, 34), xycoords="data", boxcoords="offset points",
+                frameon=False, zorder=7, annotation_clip=False))
+            dy = 62
+        ax.annotate(label, (x, ky), xytext=(0, dy),
+                    textcoords="offset points", ha="center", va="bottom",
+                    fontsize=7.4, color="#555")
 
     fig.tight_layout()
     for ext in ("pdf", "png"):
