@@ -439,6 +439,9 @@ def fig_farmwild(counts):
     """
     rows = sorted(counts, key=lambda m: counts[m][0] / counts[m][1])
     n = len(rows)
+    # all or nothing: one photo and one bare dot reads as a mistake, so if
+    # either icon is missing the whole figure falls back to plain markers
+    PHOTOS = all((ICONS / f"{i}.png").exists() for i in ("animal", "wild"))
     fig, ax = plt.subplots(figsize=(TEXT_W * 0.92, 0.42 * n + 1.0))
 
     for i, m in enumerate(rows):
@@ -449,9 +452,23 @@ def fig_farmwild(counts):
         ax.annotate("", xy=(w, y), xytext=(f, y),
                     arrowprops=dict(arrowstyle="-|>", color=c, lw=1.5,
                                     alpha=0.75, shrinkA=0, shrinkB=0))
-        ax.plot([f], [y], marker="o", ms=6.5, mfc="white", mec=c, mew=1.6,
-                zorder=4)
-        ax.plot([w], [y], marker="o", ms=6.5, color=c, zorder=5)
+        if PHOTOS:
+            # Sheep at the farm rate, opossum at the wild rate. Six of the
+            # nine gaps are narrower than an icon, so at a common height the
+            # opossum simply erases the sheep. Staggering them, sheep above
+            # the row line and opossum below, keeps both readable without
+            # moving either off its true rate: the horizontal position is
+            # still the number, and the arrow carries the direction.
+            for x, icon, z, dy, zo in ((f, "animal", 0.075, 0.19, 4),
+                                       (w, "wild", 0.064, -0.19, 5)):
+                ax.add_artist(AnnotationBbox(
+                    OffsetImage(plt.imread(str(ICONS / f"{icon}.png")), zoom=z),
+                    (x, y + dy), frameon=False, zorder=zo,
+                    box_alignment=(0.5, 0.5), annotation_clip=False))
+        else:
+            ax.plot([f], [y], marker="o", ms=6.5, mfc="white", mec=c, mew=1.6,
+                    zorder=4)
+            ax.plot([w], [y], marker="o", ms=6.5, color=c, zorder=5)
         lb = logo_box(m, zoom=0.10)
         if lb:
             ax.add_artist(AnnotationBbox(
@@ -476,33 +493,30 @@ def fig_farmwild(counts):
     ax.set_xlabel("Share of animals driven over")
 
     # The key sits in the empty top-right space (the three most merciful
-    # models sit near 0%, so nothing is there). It uses the animal photos
-    # where they exist, so a reader recognises the two groups without
-    # decoding hollow-against-solid. The markers on the rows stay as dots:
-    # several gaps here are under a point wide and two photos that close
-    # together would overlap into a smudge.
-    kx, ky = 58.0, n - 1.05
+    # models sit near 0%, so nothing is there), at a size that reads as a
+    # label rather than a data point.
+    # sits in the gap between two rows, not on one: level with a row the
+    # key's arrow reads as that model's data
+    kx, ky = 58.0, n - 2.5
     ax.annotate("", xy=(kx + 22, ky), xytext=(kx, ky),
                 arrowprops=dict(arrowstyle="-|>", color="#777", lw=1.5,
                                 shrinkA=0, shrinkB=0))
-    ax.plot([kx], [ky], marker="o", ms=6.5, mfc="white", mec="#777", mew=1.6)
-    ax.plot([kx + 22], [ky], marker="o", ms=6.5, color="#777")
-    # all or nothing: one photo and one bare label reads as a mistake, so if
-    # either icon is missing both ends fall back to the plain dot key
-    both = all((ICONS / f"{i}.png").exists() for i in ("animal", "wild"))
+    if not PHOTOS:
+        ax.plot([kx], [ky], marker="o", ms=6.5, mfc="white", mec="#777", mew=1.6)
+        ax.plot([kx + 22], [ky], marker="o", ms=6.5, color="#777")
     for x, label, icon in ((kx, "farmed animals", "animal"),
                            (kx + 22, "wild animals", "wild")):
         f = ICONS / f"{icon}.png"
         dy = 9
-        if both and f.exists():
+        if PHOTOS:
             # the crops differ in aspect, so equal zoom makes the wide
             # opossum tower over the sheep; scale each to the same height
-            z = {"animal": 0.225, "wild": 0.193}[icon]
+            z = {"animal": 0.105, "wild": 0.090}[icon]
             ax.add_artist(AnnotationBbox(
                 OffsetImage(plt.imread(str(f)), zoom=z), (x, ky),
-                xybox=(0, 34), xycoords="data", boxcoords="offset points",
+                xybox=(0, 13), xycoords="data", boxcoords="offset points",
                 frameon=False, zorder=7, annotation_clip=False))
-            dy = 62
+            dy = 30
         ax.annotate(label, (x, ky), xytext=(0, dy),
                     textcoords="offset points", ha="center", va="bottom",
                     fontsize=7.4, color="#555")
