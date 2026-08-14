@@ -495,8 +495,11 @@ def fig_farmwild(counts):
         f = ICONS / f"{icon}.png"
         dy = 9
         if both and f.exists():
+            # the crops differ in aspect, so equal zoom makes the wide
+            # opossum tower over the sheep; scale each to the same height
+            z = {"animal": 0.225, "wild": 0.193}[icon]
             ax.add_artist(AnnotationBbox(
-                OffsetImage(plt.imread(str(f)), zoom=0.16), (x, ky),
+                OffsetImage(plt.imread(str(f)), zoom=z), (x, ky),
                 xybox=(0, 34), xycoords="data", boxcoords="offset points",
                 frameon=False, zorder=7, annotation_clip=False))
             dy = 62
