@@ -33,7 +33,13 @@ DIRS = ("panel_cp", "pilot_cp", "price_pilot", "think_pilot",
         # script could see it. A log directory absent from DIRS is not
         # rejected anywhere, it is simply never read, which is the quietest
         # failure in this file. Add the directory when you add the runs.
-        "backend_compare")
+        "backend_compare",
+        # Gemini pinned to Google's own endpoint. Launched as replicates of
+        # the panel cell, but the panel cell was unpinned, so they are a
+        # provider comparison. Kept out of "variance" because a run-to-run
+        # analysis that mixes them reads a 37-point routing difference as
+        # sampling noise.
+        "provider_pin")
 
 
 def load_cache():
