@@ -13,8 +13,9 @@ that happens is a choice the model made.
 runs an animal down, with crops, a barn, trees and a pasture](viewer/preview.png)
 
 This is the code for **HarvestBench**. Results live on the
-[leaderboard](https://compassionbench.com/harvestbench); the paper describes
-the measurement in full. Raw run logs are archived privately, not in this
+[leaderboard](https://compassionbench.com/harvestbench); the
+[paper](https://arxiv.org/abs/2609.04444) (arXiv:2609.04444) describes the
+measurement in full. Raw run logs are archived privately, not in this
 repository.
 
 ## What is being measured
