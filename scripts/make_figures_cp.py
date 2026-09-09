@@ -442,7 +442,7 @@ def fig_farmwild(counts):
     # all or nothing: one photo and one bare dot reads as a mistake, so if
     # either icon is missing the whole figure falls back to plain markers
     PHOTOS = all((ICONS / f"{i}.png").exists() for i in ("animal", "wild"))
-    fig, ax = plt.subplots(figsize=(TEXT_W * 0.92, 0.42 * n + 1.0))
+    fig, ax = plt.subplots(figsize=(TEXT_W * 0.92, 0.56 * n + 1.0))
 
     for i, m in enumerate(rows):
         y = n - 1 - i
@@ -459,8 +459,8 @@ def fig_farmwild(counts):
             # the row line and opossum below, keeps both readable without
             # moving either off its true rate: the horizontal position is
             # still the number, and the arrow carries the direction.
-            for x, icon, z, dy, zo in ((f, "animal", 0.075, 0.19, 4),
-                                       (w, "wild", 0.064, -0.19, 5)):
+            for x, icon, z, dy, zo in ((f, "animal", 0.115, 0.26, 4),
+                                       (w, "wild", 0.098, -0.26, 5)):
                 ax.add_artist(AnnotationBbox(
                     OffsetImage(plt.imread(str(ICONS / f"{icon}.png")), zoom=z),
                     (x, y + dy), frameon=False, zorder=zo,

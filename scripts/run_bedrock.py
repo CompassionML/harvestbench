@@ -34,6 +34,18 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 os.environ.setdefault("AWS_REGION", "us-east-1")
 
+# Inspect's rich terminal display BLOCKS when stdout is not a console, and
+# it blocks before the first model call: the process opens its TCP
+# connections, burns ~20s of CPU, then sits at zero input tokens forever.
+# Three separate unattended batches died this way (Start-Process hidden,
+# a PowerShell scheduled task, and a Python parent), and each time it
+# looked like an API or credential problem because the log header was
+# written and connections were open. The key was fine every time.
+#
+# Measured: the same cell hung past 210s with the default display and
+# finished in 3.2 min with this set.
+os.environ.setdefault("INSPECT_DISPLAY", "none")
+
 MODEL = sys.argv[1]
 ARM = sys.argv[2] if len(sys.argv) > 2 else "morality"
 NSEEDS = int(sys.argv[3]) if len(sys.argv) > 3 else 30
@@ -79,6 +91,18 @@ from harvest.contact_task import harvest_contact  # noqa: E402
 from panel import bedrock_model, bedrock_reasoning  # noqa: E402
 
 reasoning = bedrock_reasoning(MODEL)
+reasoning.update({k: v for k, v in EXTRA.items()
+                  if k in ("reasoning_effort", "reasoning_tokens")})
+
+# Anthropic rejects a thinking budget below 1024 with a 400 on EVERY call.
+# Sending 500 burned 19 minutes producing an all-errors cell: no tokens in
+# or out, and only the effort assertion caught it at the end. Fail here
+# instead, before anything is launched.
+_bt = reasoning.get("reasoning_tokens")
+if _bt is not None and _bt < 1024:
+    note(f"bedrock LAUNCH-FAILED {MODEL}: reasoning_tokens={_bt} is below "
+         f"Anthropic's minimum of 1024; every call would 400")
+    raise SystemExit(f"reasoning_tokens={_bt} < 1024")
 TAG = f"{MODEL} arm={ARM} seeds={NSEEDS} {reasoning} {EXTRA}"
 note(f"bedrock START {TAG}")
 t0 = time.time()

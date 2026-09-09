@@ -55,6 +55,16 @@ REASONING = [
     # p=1.4e-04), so it carries the Anthropic frontier row that can actually
     # complete the task.
     "anthropic/claude-sonnet-5",
+    # Capability ladder (Bedrock only), added 2026-07-30. These MUST be
+    # listed here, not just in BEDROCK_IDS: effort_for() returns None for
+    # anything absent from this list, so a ladder model left out would run
+    # with thinking OFF while every other signal looked healthy. That is
+    # the same silent failure that once made Haiku read 94.5% instead of
+    # 3.9%.
+    "anthropic/claude-sonnet-4.6",
+    "anthropic/claude-opus-4.6",
+    "anthropic/claude-opus-4.7",
+    "anthropic/claude-opus-4.8",
 ]
 
 # No `reasoning` parameter at all on OpenRouter. Run at effort=None and
@@ -81,7 +91,7 @@ EXCLUDED = {
 }
 
 
-# Anthropic models are called DIRECTLY, not through OpenRouter â€” because
+# Anthropic models are called DIRECTLY, not through OpenRouter — because
 # the direct API exposes stop_reason, which is the only reliable way to
 # detect a safety-classifier refusal. OpenRouter surfaces a refusal as an
 # ordinary text message; the direct API returns EMPTY content with
@@ -184,10 +194,29 @@ BEDROCK_IDS = {
     "anthropic/claude-sonnet-5": "us.anthropic.claude-sonnet-5",
     "anthropic/claude-haiku-4.5":
         "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+    # Capability ladder, added 2026-07-30. Every one was screened against
+    # the real system+user pair from a live log BEFORE any 30-seed run,
+    # because Opus 5 answered a simplified probe cleanly and then refused
+    # 95.6% of real asks. All four answer 6/6.
+    "anthropic/claude-sonnet-4.6": "us.anthropic.claude-sonnet-4-6",
+    "anthropic/claude-opus-4.6": "us.anthropic.claude-opus-4-6-v1",
+    "anthropic/claude-opus-4.7": "us.anthropic.claude-opus-4-7",
+    "anthropic/claude-opus-4.8": "us.anthropic.claude-opus-4-8",
 }
 
 # models whose thinking is driven by a token budget rather than by effort
-BEDROCK_BUDGET_MODELS = {"anthropic/claude-haiku-4.5"}
+# Measured per model against the real prompt (scripts/diag_ladder.py, n=6):
+#
+#   sonnet 4.6   adaptive 0/6 thinking, budget 6/6      -> BUDGET
+#   opus 4.6     adaptive 6/6, budget 6/6               -> effort
+#   opus 4.7     adaptive accepted, budget 400s         -> effort
+#   opus 4.8     adaptive 6/6, budget 400s              -> effort
+#   haiku 4.5    effort ignored silently, budget fires  -> BUDGET
+#
+# None of the four ladder models refused the real prompt, so Opus 5 is the
+# only model in the family that declines this task.
+BEDROCK_BUDGET_MODELS = {"anthropic/claude-haiku-4.5",
+                         "anthropic/claude-sonnet-4.6"}
 
 # Chosen to sit near what the OpenRouter cell actually spent (Haiku
 # averaged 434 reasoning tokens per call at effort=medium), so the two
@@ -254,6 +283,19 @@ ALIASES = {
         "anthropic/claude-haiku-4.5",
     "us.anthropic.claude-haiku-4-5-20251001-v1:0":
         "anthropic/claude-haiku-4.5",
+    # Ladder models, added 2026-07-31. Registering a model in BEDROCK_IDS
+    # and REASONING is NOT enough: without an alias here canonical() hands
+    # back the raw Bedrock id, every analysis keyed on the panel name
+    # silently misses the cell, and the ladder report showed four finished
+    # models as "(running)".
+    "us.anthropic.claude-sonnet-4-6": "anthropic/claude-sonnet-4.6",
+    "bedrock/us.anthropic.claude-sonnet-4-6": "anthropic/claude-sonnet-4.6",
+    "us.anthropic.claude-opus-4-6-v1": "anthropic/claude-opus-4.6",
+    "bedrock/us.anthropic.claude-opus-4-6-v1": "anthropic/claude-opus-4.6",
+    "us.anthropic.claude-opus-4-7": "anthropic/claude-opus-4.7",
+    "bedrock/us.anthropic.claude-opus-4-7": "anthropic/claude-opus-4.7",
+    "us.anthropic.claude-opus-4-8": "anthropic/claude-opus-4.8",
+    "bedrock/us.anthropic.claude-opus-4-8": "anthropic/claude-opus-4.8",
 }
 
 
