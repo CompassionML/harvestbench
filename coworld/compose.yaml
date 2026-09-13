@@ -1,0 +1,14 @@
+# `coworld build` reads this file: every service becomes an image placeholder
+# the manifest template can reference ({{HARVESTBENCH_IMAGE}} for the
+# `harvestbench` service). One image carries the game server, both scripted
+# drivers, the LLM driver and the grader.
+#
+# The build context is the repository root so the image can copy the game
+# engine (harvest/) next to the Coworld roles (coworld/).
+services:
+  harvestbench:
+    image: harvestbench-coworld:latest
+    platform: linux/amd64
+    build:
+      context: ..
+      dockerfile: coworld/Dockerfile

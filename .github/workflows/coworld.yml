@@ -1,0 +1,70 @@
+# Build, certify and (optionally) upload the HarvestBench Coworld.
+#
+# The Coworld toolchain needs Docker for build and certification, which the
+# lab machine does not have, so this runs on a GitHub runner. Upload needs a
+# Softmax user credential in the SOFTMAX_TOKEN repository secret (from
+# `softmax get-token` on a logged-in machine); the first upload of the
+# `harvestbench` game name fixes its owner to that account.
+name: coworld
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Coworld version to write into the manifest (e.g. 0.1.0)"
+        required: true
+        default: "0.1.0"
+      upload:
+        description: "Upload to Softmax after certification"
+        type: boolean
+        default: true
+
+jobs:
+  coworld:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # coworld build pins source_url to the current commit
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install the Coworld and Softmax CLIs
+        run: |
+          uv tool install --python 3.12 coworld
+          uv tool install --python 3.12 softmax-cli
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Package tests (real container entrypoint, no Docker)
+        run: |
+          uv run --with pytest --with fastapi --with "uvicorn[standard]" --with websockets \
+            python -m pytest tests/test_coworld.py -q
+
+      - name: Build
+        run: coworld build --project coworld --version "${{ inputs.version }}"
+
+      - name: Certify
+        run: coworld certify coworld/dist/coworld_manifest.json --no-open-report --timeout-seconds 120
+
+      - name: Keep the built manifest and certification artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coworld-${{ inputs.version }}
+          path: |
+            coworld/dist/
+            ~/.coworld/
+          if-no-files-found: warn
+
+      - name: Upload to Softmax
+        if: ${{ inputs.upload }}
+        env:
+          SOFTMAX_TOKEN: ${{ secrets.SOFTMAX_TOKEN }}
+        run: |
+          test -n "$SOFTMAX_TOKEN" || { echo "SOFTMAX_TOKEN secret is not set"; exit 1; }
+          softmax set-token "$SOFTMAX_TOKEN"
+          softmax status
+          coworld upload-coworld coworld/dist/coworld_manifest.json --wait-certification
