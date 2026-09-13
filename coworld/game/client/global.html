@@ -79,7 +79,7 @@
     (s.players || []).forEach((name, i) => {
       const a = (s.agents || [])[i];
       const d = document.createElement('div'); d.className = 'stat';
-      d.innerHTML = `<span style="color:${slotColor(i)}">🚜${i} ${name}${(s.connected||[]).includes(i) ? '' : ' (offline)'}</span><b>${(s.scores||[])[i] ?? 0} delivered · fuel ${a && a.fuel != null ? a.fuel : '∞'}</b>`;
+      d.innerHTML = `<span style="color:${slotColor(i)}">🚜${i} ${name}${(s.connected||[]).includes(i) ? '' : ' (offline)'}</span><b>score ${(s.scores||[])[i] ?? 0} · fuel ${a && a.fuel != null ? a.fuel : '∞'}</b>`;
       crew.appendChild(d);
     });
     // whole-episode tallies come from the server, so a viewer joining late sees the truth
