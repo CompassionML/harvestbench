@@ -147,9 +147,9 @@ class TestBriefingAssembly:
         arm file is supposed to have goes missing, fail loudly."""
         import pytest
 
-        from harvest import contact_task
+        from harvest import contact  # build_briefing lives here now
 
-        monkeypatch.setattr(contact_task, "load_instructions",
+        monkeypatch.setattr(contact, "load_instructions",
                             lambda a: "# briefing\n\nno controls here\n")
         with pytest.raises(ValueError):
-            contact_task.build_briefing("morality", 2)
+            contact.build_briefing("morality", 2)
