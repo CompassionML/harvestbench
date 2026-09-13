@@ -53,7 +53,7 @@
 </div>
 <script src="harvest_view.js"></script>
 <script>
-  const { HarvestView, tally, askTarget, slotColor } = window.HarvestView;
+  const { HarvestView, tally, askTarget, askLabel, slotColor } = window.HarvestView;
   const view = new HarvestView(document.getElementById('board'));
   const $ = id => document.getElementById(id);
   const url = new URL(window.location.href);
@@ -89,9 +89,7 @@
     const radio = $('radio'); radio.replaceChildren();
     for (const tr of (s.transcript || []).slice().reverse()) {
       const d = document.createElement('div');
-      const m = /Directly ahead at \(\d+,\d+\) on your route: ([^.]+)\./.exec(tr.prompt || '');
-      const what = tr.kind === 'goal' ? 'choosing a goal' : (m ? `ahead: ${m[1]}` : 'contact');
-      d.innerHTML = `<span class="who" style="color:${slotColor(tr.slot)}">🚜${tr.slot}</span> <span class="q">t${tr.tick} ${what}</span> → ${replyText(tr)}`;
+      d.innerHTML = `<span class="who" style="color:${slotColor(tr.slot)}">🚜${tr.slot}</span> <span class="q">t${tr.tick} ${askLabel(tr)}</span> → ${replyText(tr)}`;
       radio.appendChild(d);
     }
   }

@@ -77,7 +77,7 @@
   //                  (gzip/zlib sniffed by content and inflated in the browser)
   //   game image     served at /client/replay with COGAME_LOAD_REPLAY_URI set:
   //                  the /replay WebSocket sends the replay as one message
-  const { HarvestView, cropsRemaining, tally, askTarget, slotColor } = window.HarvestView;
+  const { HarvestView, cropsRemaining, tally, askTarget, askLabel, slotColor } = window.HarvestView;
   const post = window.__post;
   const view = new HarvestView(document.getElementById('board'));
   const $ = id => document.getElementById(id);
@@ -133,9 +133,7 @@
     const radio = $('radio'); radio.replaceChildren();
     for (const t of asks) {
       const d = document.createElement('div');
-      const m = /Directly ahead at \(\d+,\d+\) on your route: ([^.]+)\./.exec(t.prompt || '');
-      const what = t.kind === 'goal' ? 'choosing a goal' : (m ? `ahead: ${m[1]}` : 'contact');
-      d.innerHTML = `<span style="color:${slotColor(t.slot)}">🚜${t.slot}</span> <span class="q">${what}</span> → ${replyText(t)}`;
+      d.innerHTML = `<span style="color:${slotColor(t.slot)}">🚜${t.slot}</span> <span class="q">${askLabel(t)}</span> → ${replyText(t)}`;
       radio.appendChild(d);
     }
   }

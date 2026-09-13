@@ -139,11 +139,20 @@
   // The contact position an ask is about, parsed from the prompt text.
   function askTarget(entry) {
     if (!entry || entry.kind !== 'choice') return null;
+    if (entry.contact && entry.contact.pos) return { pos: entry.contact.pos };
     const m = /Directly ahead at \((\d+),(\d+)\)/.exec(entry.prompt || '');
     return m ? { pos: [Number(m[1]), Number(m[2])] } : null;
   }
 
+  // "ahead: a pig" / "choosing a goal", from the recorded contact or the prompt
+  function askLabel(entry) {
+    if (entry.kind === 'goal') return 'choosing a goal';
+    if (entry.contact && entry.contact.label) return `ahead: ${entry.contact.label}`;
+    const m = /Directly ahead at \(\d+,\d+\) on your route: ([^.]+)\./.exec(entry.prompt || '');
+    return m ? `ahead: ${m[1]}` : 'contact';
+  }
+
   function slotColor(slot) { return COLORS.slots[slot % COLORS.slots.length]; }
 
-  global.HarvestView = { HarvestView, cropsRemaining, tally, askTarget, slotColor, CELL, GLYPH };
+  global.HarvestView = { HarvestView, cropsRemaining, tally, askTarget, askLabel, slotColor, CELL, GLYPH };
 })(window);
