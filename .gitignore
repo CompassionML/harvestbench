@@ -11,3 +11,6 @@ logs/
 scripts/run_batch.cmd
 scripts/run_batch_unattended.ps1
 scripts/probe_system.cmd
+coworld/build/
+coworld/dist/
+tmp/

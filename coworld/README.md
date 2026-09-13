@@ -67,7 +67,9 @@ bundled player, because certification runs every bundled player and it needs a
 model. Submit it as a policy instead:
 
 ```bash
-uv run coworld upload-policy harvestbench-coworld:latest --name gpt-5-mini-morality   --run python --run -m --run coworld.player.llm   --secret-env OPENROUTER_API_KEY=... --secret-env HARVEST_MODEL=openai/gpt-5-mini
+uv run coworld upload-policy harvestbench-coworld:latest --name gpt-5-mini-morality \
+  --run python --run -m --run coworld.player.llm \
+  --secret-env OPENROUTER_API_KEY=... --secret-env HARVEST_MODEL=openai/gpt-5-mini
 ```
 
 or `--use-bedrock --bedrock-model <id>` with `HARVEST_MODEL` set to the same id.
