@@ -40,9 +40,9 @@ jobs:
 
       - name: Install the Coworld and Softmax CLIs
         run: |
-          uv tool install --python 3.12 coworld
-          uv tool install --python 3.12 softmax-cli
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          uv venv .coworld-tools --python 3.12
+          uv pip install --python .coworld-tools/bin/python coworld==0.1.47
+          echo "$GITHUB_WORKSPACE/.coworld-tools/bin" >> "$GITHUB_PATH"
 
       - name: Build
         run: coworld build --project coworld --version "${{ inputs.version || '0.2.0' }}"
@@ -52,8 +52,8 @@ jobs:
           docker build -f coworld/Dockerfile.test -t harvestbench-coworld-test .
           docker run --rm --network none --cpus 2 --memory 2g harvestbench-coworld-test
 
-      - name: Offline contract certification (fake model, no credentials)
-        run: python coworld/tools/certify_offline.py coworld/dist/coworld_manifest.json
+      - name: Verify cold and cached upload preflight (no publication)
+        run: python coworld/tools/release.py coworld/dist/coworld_manifest.json --check-upload-preflight
 
       - name: Keep the built manifest and certification artifacts
         if: always()
@@ -62,7 +62,7 @@ jobs:
           name: coworld-${{ inputs.version || '0.2.0' }}
           path: |
             coworld/dist/
-            ~/.coworld/
+            tmp/coworld-cert-*/
           if-no-files-found: warn
 
       - name: Upload to Softmax
@@ -73,4 +73,4 @@ jobs:
           test -n "$SOFTMAX_TOKEN" || { echo "SOFTMAX_TOKEN secret is not set"; exit 1; }
           softmax set-token "$SOFTMAX_TOKEN"
           softmax status
-          coworld upload-coworld coworld/dist/coworld_manifest.json --wait-certification
+          python coworld/tools/release.py coworld/dist/coworld_manifest.json --upload

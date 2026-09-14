@@ -1,8 +1,6 @@
 """Offline Converse fixture. Not an LLM and never part of the production game image."""
 
 import json
-import os
-import runpy
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -11,6 +9,11 @@ from reference_driver import answer
 
 class FakeBedrock(BaseHTTPRequestHandler):
     requests_seen = []
+
+    def do_GET(self):
+        assert self.path == "/healthz"
+        self.send_response(200)
+        self.end_headers()
 
     def do_POST(self):
         assert self.path.endswith("/converse")
@@ -45,8 +48,6 @@ def start_server():
 
 
 if __name__ == "__main__":
-    # Used only by the offline certification image. The actual game retains
-    # its normal runner-supplied seats, files, output paths and server process.
-    provider = start_server()
-    os.environ["AWS_ENDPOINT_URL_BEDROCK_RUNTIME"] = f"http://127.0.0.1:{provider.server_port}"
-    runpy.run_module("coworld.game.server", run_name="__main__")
+    # Separate local service for the production image's preflight. No test
+    # code or model implementation is copied into the uploaded game image.
+    ThreadingHTTPServer(("0.0.0.0", 8081), FakeBedrock).serve_forever()

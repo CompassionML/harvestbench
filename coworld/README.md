@@ -127,18 +127,50 @@ For reproducible offline checks without model credentials:
 ```bash
 docker build -f coworld/Dockerfile.test -t harvestbench-coworld-test .
 docker run --rm --network none --cpus 2 --memory 2g harvestbench-coworld-test
-python coworld/tools/certify_offline.py coworld/dist/coworld_manifest.json
+python coworld/tools/release.py coworld/dist/coworld_manifest.json
 ```
 
-The test image supplies a **fake Converse server**, exercises real seat files,
-and runs the actual game entrypoint. Offline certification uses a separate
-manifest and image; it does not certify model quality or hosted Bedrock access.
-The normal manifest contains no test server. Upload requests real hosted
-certification with both bundled souls:
+The release helper starts a **fake Converse service in a separate container**.
+It certifies the production game image, entrypoint and bundled souls. A temporary
+release manifest points `AWS_ENDPOINT_URL_BEDROCK_RUNTIME` at that local service;
+no fake-model code is added to the production image.
+
+Use the same helper to publish:
 
 ```bash
-coworld upload-coworld coworld/dist/coworld_manifest.json --wait-certification
+python coworld/tools/release.py coworld/dist/coworld_manifest.json --upload
 ```
+
+It certifies and uploads the **same manifest**, so upload can reuse the genuine
+local proof. The local service stays available if preflight needs to run again.
+No certification records are fabricated or copied between different images.
+Hosted episodes discard the reserved endpoint override and inject their real
+Bedrock sidecar, as specified by the
+[Coworld game contract](https://github.com/Metta-AI/coworld/blob/main/src/coworld/docs/roles/GAME.md#bedrock-and-aws-access).
+The helper waits for real hosted certification, then removes its local service.
+Offline success alone does not establish hosted model access or model quality.
+
+CI additionally runs `release.py --check-upload-preflight`. This exercises the
+actual upload CLI with an empty certification cache, then repeats with the
+resulting cache. Both attempts stop immediately before authentication and remote
+writes. This check requires `coworld==0.1.47` in the same Python environment;
+the workflow installs that environment automatically.
+
+### Release through GitHub
+
+After merging this PR, run the existing workflow with version `0.2.0` and upload
+enabled. The repository's `SOFTMAX_TOKEN` secret must belong to the Coworld owner.
+No local Docker installation or additional model-provider secret is needed:
+
+```bash
+gh workflow run coworld.yml --repo CompassionML/harvestbench --ref main \
+  -f version=0.2.0 -f upload=true
+```
+
+The workflow builds, tests, verifies the upload preflight, uploads, and waits for
+hosted certification. Send the resulting Coworld ID to the league administrator
+for the roster and runtime cutover. Do not switch the live league on a failed
+hosted certification.
 
 ## Migration and privacy
 
