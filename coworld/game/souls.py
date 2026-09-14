@@ -9,6 +9,7 @@ import time
 from pathlib import Path
 from typing import Literal
 from urllib.parse import quote, unquote, urlparse
+from urllib.request import url2pathname
 
 import httpx
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
@@ -52,7 +53,8 @@ def seat_path(uri: str) -> Path:
     parsed = urlparse(uri)
     if parsed.scheme != "file" or parsed.netloc or not parsed.path.startswith("/"):
         raise ValueError("Seat artifacts require an absolute local file URI")
-    return Path(unquote(parsed.path))
+    # url2pathname maps /C:/x to the Windows drive path and leaves POSIX alone.
+    return Path(url2pathname(unquote(parsed.path)))
 
 
 def load_soul(seat: PlayerSeat) -> Soul:

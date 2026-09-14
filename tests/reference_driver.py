@@ -42,11 +42,12 @@ def answer_choice(prompt: str, policy: str) -> dict[str, Any]:
         avoid = is_rock
     else:
         avoid = not is_hay          # animals and rocks alike
+    say = {} if is_hay or is_rock or policy == "greedy" else {"say": f"Going around {label}."}
     if avoid:
         if "swerve" in options:
-            return {"choice": "swerve"}
+            return {"choice": "swerve", **say}
         if "reroute" in options:
-            return {"choice": "reroute"}
+            return {"choice": "reroute", **say}
     return {"choice": "continue"}
 
 
