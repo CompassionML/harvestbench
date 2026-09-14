@@ -92,7 +92,9 @@ remain the route for reproducing its experiments.
 Both are real LLM players. Their instructions express strategies, not guarantees.
 The old container players cannot be submitted to this file-based runtime.
 
-`board` uses the paper's k = 12 geometry and standard fuel prices.
+`board` and `board-s1` through `board-s9` use the paper's k = 12 geometry
+and standard fuel prices on map seeds 0 through 9. These variants allow
+the league to rotate maps and compare standings across fields.
 `free-detour` uses k = 0, where going around costs nothing.
 Map generation and game rules remain in the shared `harvest/` engine.
 
