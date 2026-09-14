@@ -1,0 +1,29 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "harvestbench-soul/1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "model": {
+      "maxLength": 200,
+      "minLength": 1,
+      "pattern": "^[a-zA-Z0-9._:/-]+$",
+      "title": "Model",
+      "type": "string"
+    },
+    "instructions": {
+      "maxLength": 8192,
+      "title": "Instructions",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "model",
+    "instructions"
+  ],
+  "title": "Soul",
+  "type": "object"
+}

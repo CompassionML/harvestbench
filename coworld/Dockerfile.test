@@ -1,0 +1,7 @@
+ARG GAME_IMAGE=harvestbench-coworld:latest
+FROM ${GAME_IMAGE}
+
+RUN pip install --no-cache-dir pytest==9.1.1
+COPY tests /app/tests
+COPY coworld/souls /app/coworld/souls
+CMD ["python", "-m", "pytest", "tests/test_coworld.py", "tests/test_souls.py", "-q"]

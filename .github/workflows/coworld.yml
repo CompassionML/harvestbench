@@ -8,12 +8,18 @@
 name: coworld
 
 on:
+  pull_request:
+    paths:
+      - "coworld/**"
+      - "harvest/**"
+      - "tests/**"
+      - ".github/workflows/coworld.yml"
   workflow_dispatch:
     inputs:
       version:
         description: "Coworld version to write into the manifest (e.g. 0.1.0)"
         required: true
-        default: "0.1.0"
+        default: "0.2.0"
       upload:
         description: "Upload to Softmax after certification"
         type: boolean
@@ -38,22 +44,22 @@ jobs:
           uv tool install --python 3.12 softmax-cli
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
-      - name: Package tests (real container entrypoint, no Docker)
-        run: |
-          uv run --with pytest --with fastapi --with "uvicorn[standard]" --with websockets \
-            python -m pytest tests/test_coworld.py -q
-
       - name: Build
-        run: coworld build --project coworld --version "${{ inputs.version }}"
+        run: coworld build --project coworld --version "${{ inputs.version || '0.2.0' }}"
 
-      - name: Certify
-        run: coworld certify coworld/dist/coworld_manifest.json --no-open-report --timeout-seconds 120
+      - name: Test the game-owned soul runtime
+        run: |
+          docker build -f coworld/Dockerfile.test -t harvestbench-coworld-test .
+          docker run --rm --network none --cpus 2 --memory 2g harvestbench-coworld-test
+
+      - name: Offline contract certification (fake model, no credentials)
+        run: python coworld/tools/certify_offline.py coworld/dist/coworld_manifest.json
 
       - name: Keep the built manifest and certification artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: coworld-${{ inputs.version }}
+          name: coworld-${{ inputs.version || '0.2.0' }}
           path: |
             coworld/dist/
             ~/.coworld/
