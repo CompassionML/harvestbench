@@ -1,5 +1,6 @@
 ## Paintbot-style match header, object inspector, and per-seat history plots.
 import std/[json, strutils, math]
+from std/unicode import runeLen, runeSubStr
 import chroma, silky, vmath, windy
 import polyworld/[chrome, gameuis, inputs]
 import replay, effects
@@ -129,6 +130,28 @@ proc historyGraph(sk:Silky,p:GameUiPanel,title:string,r:Replay,index,metric:int)
   let cursor=origin.x+index.float32/max(1,r.metrics.len-1).float32*size.x
   sk.drawRect(vec2(cursor,origin.y),vec2(1,size.y),rgbx(243,231,184,200))
 
+proc clip(value:string,runes:int):string =
+  ## Shorten to whole characters so a broadcast never ends mid-codepoint.
+  if value.runeLen<=runes:value else:value.runeSubStr(0,runes-1) & "..."
+
+proc animalPanel(sk:Silky,p:GameUiPanel,r:Replay,index:int) =
+  ## Every animal met so far, newest first; the driver's broadcast is shown
+  ## under a decision only when it said something.
+  sk.drawFrame(p)
+  sk.text("ANIMALS MET",p.origin+vec2(10,7),rgbx(228,216,181,255),"Small")
+  const Row=17'f32
+  var y=p.origin.y+28
+  let bottom=p.origin.y+p.size.y-6
+  for note in r.animalNotes(index):
+    if y+Row>bottom:break
+    let verdictColor=if note.verdict=="ran over":rgbx(231,120,108,255) else:rgbx(140,200,130,255)
+    sk.text("T" & $(note.slot+1),vec2(p.origin.x+10,y),SeatColors[note.slot mod SeatColors.len],"Small",28)
+    sk.text(clip(note.verdict & " " & note.label,40),vec2(p.origin.x+36,y),verdictColor,"Small",p.size.x-46)
+    y+=Row
+    if note.say.len>0 and y+Row<=bottom:
+      sk.text("\"" & clip(note.say,42) & "\"",vec2(p.origin.x+36,y),rgbx(232,228,206,255),"Small",p.size.x-46)
+      y+=Row
+
 proc sidebar*(sk:Silky,window:Window,r:Replay,index:int,s:Selection) =
   let x=window.size.x.float32-SidebarWidth-12
   let top=HeaderHeight+12
@@ -139,6 +162,8 @@ proc sidebar*(sk:Silky,window:Window,r:Replay,index:int,s:Selection) =
     sk.text(line,vec2(x+14,top+12+i.float32*24),
       if i==0:rgbx(247,229,181,255) else:rgbx(218,224,210,255),if i==0:"Bold" else:"Hud")
   let available=window.size.y.float32-80-(top+238)-16
-  let graphHeight=min(122'f32,available/3)
+  let graphHeight=min(122'f32,available*0.6'f32/3)
   for i,title in ["DELIVERIES","ANIMALS KILLED","FUEL REMAINING"]:
     sk.historyGraph(GameUiPanel(origin:vec2(x,top+238+i.float32*graphHeight),size:vec2(SidebarWidth,graphHeight-7)),title,r,index,i)
+  let notesTop=top+238+3'f32*graphHeight
+  sk.animalPanel(GameUiPanel(origin:vec2(x,notesTop),size:vec2(SidebarWidth,available-3'f32*graphHeight-7)),r,index)
