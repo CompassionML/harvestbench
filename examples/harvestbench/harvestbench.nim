@@ -2,7 +2,7 @@
 import std/[json, math, os, strutils, times]
 import chroma, opengl, pixie, silky, vmath, windy
 import polyworld/[actioncam, common, gameuis, inputs, player, shapes, viewers]
-import replay, terrain
+import replay, terrain, animals, effects, hud
 import polyworld/[quadterrain, shadows]
 
 var
@@ -38,6 +38,7 @@ var frameIndex = 0
 var lastFrame = epochTime()
 var screenshotFrame = 0
 var selected = 0
+var selection=Selection(kind:"tractor",key:"0")
 
 when defined(emscripten):
   {.emit: """
@@ -67,26 +68,9 @@ proc box(p, size: Vec3, color: ColorRGBX) =
   renderer.addQuad(c,d,d+up,c+up,shade(color,0.65))
   renderer.addQuad(d,a,a+up,d+up,shade(color,0.8))
 
-proc animal(p: Vec3, species: string, alive: bool) =
-  let bird = species.contains("goose") or species in ["duck","chicken"]
-  var color = if bird: rgbx(243,233,195,255) elif species in ["pig","opossum"]: rgbx(226,155,148,255) elif species in ["cow","sheep"]: rgbx(220,214,198,255) else: rgbx(159,117,80,255)
-  if not alive:
-    box(p,vec3(0.55,0.08,0.35),rgbx(89,69,61,255))
-    renderer.addLine(p+vec3(-0.22,0.12,-0.22),p+vec3(0.22,0.12,0.22),rgbx(234,88,82,255),0.035)
-    renderer.addLine(p+vec3(-0.22,0.12,0.22),p+vec3(0.22,0.12,-0.22),rgbx(234,88,82,255),0.035)
-    return
-  let scale = if bird: 0.7'f32 else: 1'f32
-  box(p+vec3(0,0.18,0),vec3(0.52,0.32,0.32)*scale,color)
-  box(p+vec3(0.26*scale,0.33,0),vec3(0.23,0.26,0.26)*scale,color)
-  for x in [-0.16'f32,0.16]:
-    for z in [-0.11'f32,0.11]:
-      box(p+vec3(x,0,z),vec3(0.07,0.22,0.07),shade(color,0.65))
-  if bird:
-    box(p+vec3(0.32,0.42,0),vec3(0.18,0.06,0.08),rgbx(232,171,51,255))
-  else:
-    for z in [-0.09'f32,0.09]:
-      box(p+vec3(0.28,0.57,z),vec3(0.08,0.13,0.06),color)
-  box(p+vec3(0.32,0.48,-0.125),vec3(0.05,0.05,0.025),rgbx(25,30,26,255))
+var visualFraction=0'f32
+var visualTick=0'f32
+var cues:seq[Cue]
 
 proc drawFarm() =
   renderer.clear()
@@ -149,7 +133,11 @@ proc drawFarm() =
   for entity in frame["entities"]:
     let p=point(entity["pos"])
     case entity["kind"].getStr
-    of "creature": animal(p,entity{"species"}.getStr(entity{"type"}.getStr),entity["alive"].getBool)
+    of "creature":
+      var phase=0'f32
+      for ch in entity["id"].getStr:phase+=ch.ord.float32*0.17
+      cuteAnimal(renderer,p,entity{"species"}.getStr(entity{"type"}.getStr),entity["alive"].getBool,
+        visualTick/6,phase,cues.impactAge("trample",entityId=entity["id"].getStr))
     of "rock":
       box(p,vec3(0.55,0.35,0.48),rgbx(125,129,128,255))
       box(p+vec3(0.03,0.35,0),vec3(0.32,0.13,0.3),rgbx(151,153,143,255))
@@ -161,19 +149,97 @@ proc drawFarm() =
     var p=point(actor["pos"])
     let slot=actor["slot"].getInt
     let colors=[rgbx(50,127,172,255),rgbx(211,108,49,255),rgbx(160,92,170,255),rgbx(57,153,126,255)]
-    let c=colors[slot mod colors.len]
+    let hit=cues.impactAge("rock_hit",slot=slot)
+    if hit<6:
+      let decay=1-hit/6
+      p+=vec3(sin(hit*16)*0.13*decay,abs(sin(hit*11))*0.08*decay,cos(hit*19)*0.06*decay)
+    let c=if hit<5 and (hit*5).int mod 2==0:rgbx(255,101,73,255) else:colors[slot mod colors.len]
     box(p+vec3(0,0.2,0),vec3(0.68,0.3,0.48),c)
     box(p+vec3(-0.15,0.5,0),vec3(0.3,0.32,0.36),rgbx(179,211,211,255))
     box(p+vec3(-0.15,0.82,0),vec3(0.39,0.06,0.44),c)
     for dx in [-0.23'f32,0.23]:
       for dz in [-0.27'f32,0.27]: box(p+vec3(dx,0.03,dz),vec3(0.22,0.32,0.15),rgbx(42,46,40,255))
-    if actor["carrying"].getBool: box(p+vec3(0.18,0.51,0),vec3(0.25,0.25,0.25),rgbx(243,201,71,255))
+    # The load changes the 3D model: a wooden rear basket filled with ears
+    # of corn and green husks. Empty tractors have only the bare rear rack.
+    let cargo=p+vec3(-0.56,0.23,0)
+    box(cargo,vec3(0.45,0.07,0.52),rgbx(128,91,53,255))
+    if actor["carrying"].getBool:
+      let stolen=recording.stolenCargo(frameIndex,slot)
+      for dz in [-0.25'f32,0.25]:box(cargo+vec3(0,0.07,dz),vec3(0.47,0.19,0.04),rgbx(188,141,78,255))
+      for dx in [-0.21'f32,0.21]:box(cargo+vec3(dx,0.07,0),vec3(0.04,0.19,0.52),rgbx(188,141,78,255))
+      for dx in [-0.13'f32,0,0.13]:
+        for dz in [-0.16'f32,0,0.16]:cornCob(renderer,cargo+vec3(dx,0.14,dz))
+      if stolen:renderer.addCircle(p+vec3(0,0.018,0),0.55,rgbx(239,167,39,75))
+  for cue in cues:
+    let event=cue.event
+    let kind=event{"type"}.getStr
+    if kind notin ["trample","rock_hit","pickup"]:continue
+    if kind=="pickup" and event{"owner"}.getStr!="neighbor":continue
+    let t=cue.age/6
+    if t>1.5:continue
+    let origin=point(event["pos"])
+    if kind=="pickup":
+      let slot=event["slot"].getInt
+      let destination=point(frame["agents"][slot]["pos"])+vec3(0.18,0.65,0)
+      for j in 0..4:
+        let u=clamp((t-j.float32*0.06)/0.65,0'f32,1'f32)
+        if u>=1:continue
+        let p=mix(origin+vec3(0,0.35,0),destination,u)+vec3(0,sin(u*PI.float32)*0.65,0)
+        box(p,vec3(0.08,0.20,0.08),rgbx(255,202,51,255))
+    else:
+      for j in 0..8:
+        let angle=j.float32*2*PI.float32/9
+        let radius=0.13+t*(0.45+(j mod 3).float32*0.12)
+        let y=if kind=="rock_hit":0.35+t*0.65 else:0.1+sin(min(t,1'f32)*PI.float32)*0.28
+        let p=origin+vec3(cos(angle)*radius,y,sin(angle)*radius)
+        let size=(if kind=="rock_hit":0.075'f32 else:0.12'f32)*(1-t/1.6)
+        box(p,vec3(size),if kind=="rock_hit" and t<0.4:rgbx(255,188,68,235) elif kind=="rock_hit":rgbx(99,102,100,140) else:rgbx(197,169,112,160))
   for gate in recording.data["gates"]:
     var opened=false
     for actor in frame["agents"]:
       if actor["pos"]==gate["plate"]: opened=true
     renderer.addSquare(point(gate["plate"],0.035),0.75,rgbx(194,169,108,255))
     if not opened: box(point(gate["pos"]),vec3(0.9,0.65,0.1),rgbx(193,137,77,255))
+
+proc selectedPosition():Vec3 =
+  if selection.kind=="tractor":
+    return point(recording.frames[frameIndex]["agents"][parseInt(selection.key)]["pos"])
+  if selection.kind=="entity":
+    for entity in recording.frames[frameIndex]["entities"]:
+      if entity["id"].getStr==selection.key:return point(entity["pos"])
+  if selection.pos!=nil:return point(selection.pos)
+  vec3(0)
+
+proc pickObject(vp:Mat4) =
+  if not window.mousePressed(MouseLeft):return
+  let mouse=window.mousePos.vec2
+  if mouse.y<HeaderHeight or mouse.y>window.size.y.float32-TransportHeight or
+     mouse.x>window.size.x.float32-SidebarWidth-24:return
+  var best=1'f32
+  var found=Selection()
+  proc consider(s:Selection,p:Vec3,radius:float32) =
+    let clip=vp*vec4(p+vec3(0,0.3,0),1)
+    if clip.w<=0:return
+    let screen=vec2((clip.x/clip.w+1)*0.5*window.size.x.float32,(1-clip.y/clip.w)*0.5*window.size.y.float32)
+    let score=length(screen-mouse)/radius
+    if score<best:
+      best=score
+      found=s
+  let frame=recording.frames[frameIndex]
+  for actor in frame["agents"]:
+    consider(Selection(kind:"tractor",key: $actor["slot"].getInt),point(actor["pos"]),24)
+  for entity in frame["entities"]:
+    consider(Selection(kind:"entity",key:entity["id"].getStr),point(entity["pos"]),20)
+  for crop in recording.crops[frameIndex]:
+    consider(Selection(kind:"crop",pos:crop["pos"]),point(crop["pos"]),19)
+  for tile in recording.data["barn"]:
+    consider(Selection(kind:"barn",pos:tile),point(tile,0.3),30)
+  for item in recording.data["scenery"]:
+    consider(Selection(kind:"scenery",key:item["type"].getStr,pos:item["pos"]),point(item["pos"]),17)
+  for gate in recording.data["gates"]:
+    consider(Selection(kind:"gate",pos:gate["pos"]),point(gate["pos"]),20)
+  selection=found
+  if found.kind=="tractor":selected=parseInt(found.key)
 
 window.onButtonPress=proc(button: Button)=
   transport.handleKey(button)
@@ -204,12 +270,19 @@ proc frame() =
     if frameIndex>=recording.frames.high: break
     inc frameIndex
     transport.sync(frameIndex.int32,(recording.frames.len-1).int32,false)
+  visualFraction=clamp(transport.accumulator*6,0'f32,0.999'f32)
+  visualTick=recording.frames[frameIndex]["tick"].getInt.float32+visualFraction
+  cues=recording.recentCues(frameIndex,visualFraction)
   if cameraControl.enabled:
-    let a=recording.frames[frameIndex]["agents"][selected]
-    target=mix(target,point(a["pos"]),min(1'f32,dt*3))
+    target=mix(target,selectedPosition(),min(1'f32,dt*3))
   else: target=mix(target,vec3(0,0,0),min(1'f32,dt*3))
   let eye=target+vec3(cos(yaw)*cos(pitch)*distance,sin(pitch)*distance,sin(yaw)*cos(pitch)*distance)
-  let vp=perspective(45'f32,window.size.x.float32/max(1'f32,window.size.y.float32),0.1'f32,200'f32)*lookAt(eye,target,vec3(0,1,0))
+  var vp=perspective(45'f32,window.size.x.float32/max(1'f32,window.size.y.float32),0.1'f32,200'f32)*lookAt(eye,target,vec3(0,1,0))
+  # Shift projected scene left to reserve the inspector column.
+  var framing=mat4()
+  framing[3,0] = -SidebarWidth/window.size.x.float32*0.7
+  vp=framing*vp
+  pickObject(vp)
   glViewport(0,0,window.size.x,window.size.y)
   applySunHour(15.4)
   sunDepthPasses(window.size):
@@ -220,41 +293,37 @@ proc frame() =
   glDisable(GL_CULL_FACE)
   drawTerrain(vp, showEdges=false)
   drawFarm()
+  if selection.kind.len>0:
+    let p=selectedPosition()+vec3(0,0.035,0)
+    var circle:seq[Vec3]
+    for i in 0..32:circle.add p+vec3(cos(i.float32*2*PI.float32/32)*0.62,0,sin(i.float32*2*PI.float32/32)*0.62)
+    renderer.addPolyline(circle,rgbx(255,231,133,230),0.025)
   renderer.draw(vp, depthWrite=true)
   glDisable(GL_DEPTH_TEST)
   glDisable(GL_CULL_FACE)
   glDisable(GL_BLEND)
   sk.beginUi(window,window.size)
-  discard sk.drawText("H1","HARVESTBENCH",vec2(24,18),rgbx(246,236,204,255))
-  discard sk.drawText("Hud","POLYWORLD   /   A crew, a harvest, a choice",vec2(26,59),rgbx(194,211,190,255))
-  let status="Delivered " & $recording.delivered[frameIndex] & "    Animals lost " & $recording.killed[frameIndex]
-  discard sk.drawText("Bold",status,vec2(26,91),rgbx(245,222,165,255))
-  var row=124'f32
-  for actor in recording.frames[frameIndex]["agents"]:
-    if window.mousePressed(MouseLeft) and sk.mousePos.x < 330 and sk.mousePos.y >= row and sk.mousePos.y < row+23:
-      selected=actor["slot"].getInt
-    let text=(if actor["slot"].getInt == selected: "> " else: "  ") & "Tractor " & $(actor["slot"].getInt+1) & "   Fuel " & $actor["fuel"] & (if actor["carrying"].getBool: "   Carrying corn" else: "   Empty")
-    discard sk.drawText("Hud",text,vec2(26,row),rgbx(223,230,213,255))
-    row+=23
-  if recording.data.hasKey("decisions"):
-    var recent: seq[JsonNode]
-    for decision in recording.data["decisions"]:
-      if decision{"tick"}.getInt <= recording.frames[frameIndex]["tick"].getInt:
-        recent.add decision
-    let x=window.size.x.float32-320
-    discard sk.drawText("Bold","LATEST CHOICES",vec2(x,26),rgbx(245,222,165,255))
-    var y=58'f32
-    for i in max(0,recent.len-4)..<recent.len:
-      let d=recent[i]
-      let text="T" & $(d{"slot"}.getInt+1) & "  " & d{"species"}.getStr.replace("_"," ") & "  /  " & d{"choice"}.getStr("no answer")
-      discard sk.drawText("Hud",text,vec2(x,y),rgbx(223,230,213,255),maxWidth=306)
-      y+=28
+  sk.header(window,recording,frameIndex,selection,selected)
+  sk.sidebar(window,recording,frameIndex,selection)
+  for cue in cues:
+    let label=cueLabel(cue.event)
+    if label.len==0 or cue.age>9:continue
+    let p=point(cue.event["pos"],1.25+cue.age*0.07)
+    let clip=vp*vec4(p,1)
+    if clip.w>0:
+      let screen=vec2((clip.x/clip.w+1)*0.5*window.size.x.float32,(1-clip.y/clip.w)*0.5*window.size.y.float32)
+      let color=if cue.event["type"].getStr=="pickup":rgbx(255,212,105,255) else:rgbx(255,150,115,255)
+      discard sk.drawText("Bold",label,screen-vec2(80,10),color,maxWidth=220)
   discard sk.drawText("Small","Space: play / pause   Arrows: step   Right-drag: orbit   Wheel: zoom",vec2(26,window.size.y.float32-107),rgbx(209,218,200,255))
   transport.drawTransport(sk,window,GameUiPanel(origin:vec2(0,window.size.y.float32-TransportHeight),size:vec2(window.size.x.float32,TransportHeight)),cameraControl,followSelection)
   sk.endUi()
   captureScreenshot(window,screenshotFrame,10,"tmp/harvestbench.png")
   window.swapBuffers()
   reportReplayFrame(frameIndex.int32,0)
+  when defined(emscripten):
+    let selectionInfo=selection.kind & ":" & selection.key
+    let selectionCString=selectionInfo.cstring
+    {.emit: "EM_ASM({ Module.harvestSelection = UTF8ToString($0); }, `selectionCString`);".}
 
 # Windy dispatches onFrame before clearing per-frame mouse/scroll events.
 # This is the GOTA loop and is required for clickable transport controls.

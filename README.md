@@ -11,7 +11,14 @@ play/pause, single-frame steps, beginning/end, looping, 1×/2×/4×/16×, timeli
 scrubbing, and the camera toggle. The farmland uses Paintbot's generated grass/dirt terrain, blended field edges,
 hand-painted trees, grass, and afternoon shadows. The farm is drawn by Polyworld's Nim/OpenGL
 renderer, compiled to WebAssembly for browsers. The same viewer serves live games
-and completed replays. Click a tractor's HUD row to select it for camera following.
+and completed replays. Click tractors, animals, corn, rocks, hay, fences, gates, or the barn to inspect them.
+
+The Paintbot-style header shows each policy's score (deliveries minus kills),
+deliveries, kills, and fuel. Matching colored graphs show their histories with a
+cursor at the selected replay tick. Tractors visibly carry baskets of corn;
+animals breathe, blink, and wiggle. Recorded collisions animate animal tumbles
+and tractor damage, and stolen corn flies into the cargo basket. Seeking restores
+the correct cargo, inspector stats, and effects.
 
 ## Run a local replay
 
@@ -28,7 +35,8 @@ python -m http.server 8778 --bind 127.0.0.1
 
 Open [the local replay](http://127.0.0.1:8778/coworld/build/static-replay-viewer/index.html?replay=/tmp/demo/replay.json).
 The demo uses explicitly labeled scripted drivers and makes **no model API calls**.
-`--policy careful`, `--policy greedy`, and `--seed N` produce additional demos.
+`--policy careful`, `--policy greedy`, `--policy showcase`, and `--seed N` produce additional demos.
+The showcase pairs a careful driver with a reckless driver to demonstrate theft and collisions.
 
 For the native viewer, after resolving dependencies:
 
@@ -63,6 +71,7 @@ Space pauses; arrow keys step; right-drag orbits; the wheel zooms.
 
 ```sh
 nim r -o:tmp/test_harvest_replay tests/test_harvest_replay.nim
+nim r -o:tmp/test_harvest_effects tests/test_harvest_effects.nim
 python -m pytest -q
 # Build the viewer BEFORE the image; the image includes that same bundle.
 docker build -f coworld/Dockerfile -t harvestbench-pw:local .

@@ -31,6 +31,7 @@ jobs:
       - name: Replay restoration and gameplay tests
         run: |
           nim r -o:tmp/test_harvest_replay tests/test_harvest_replay.nim
+          nim r -o:tmp/test_harvest_effects tests/test_harvest_effects.nim
           python scripts/demo_polyworld.py
           python -m pytest -q
       - name: Build the game image

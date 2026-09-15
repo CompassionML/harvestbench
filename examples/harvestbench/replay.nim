@@ -2,11 +2,14 @@
 import std/[json, sets, os]
 
 type
+  SeatMetrics* = object
+    delivered*, killed*, stolen*, rockHits*, fuel*: int
   Replay* = object
     data*: JsonNode
     frames*: seq[JsonNode]
     crops*: seq[seq[JsonNode]]
     delivered*, killed*: seq[int]
+    metrics*: seq[seq[SeatMetrics]]
 
 proc require(ok: bool, message: string) =
   if not ok: raise newException(ValueError, message)
@@ -62,6 +65,25 @@ proc loadHarvestReplay*(path: string): Replay =
     result.crops.add remaining
     result.delivered.add deliveries
     result.killed.add deaths
+  var previous:seq[SeatMetrics]
+  for frame in result.frames:
+    var current:seq[SeatMetrics]
+    for slot, actor in frame["agents"].getElems:
+      var seat = if slot<previous.len:previous[slot] else:SeatMetrics()
+      seat.fuel=actor{"fuel"}.getInt(-1)
+      current.add seat
+    for event in frame["events"]:
+      let slot=event{"slot"}.getInt(-1)
+      if slot<0 or slot>=current.len:continue
+      case event{"type"}.getStr
+      of "deliver":inc current[slot].delivered
+      of "trample":inc current[slot].killed
+      of "rock_hit":inc current[slot].rockHits
+      of "pickup":
+        if event{"owner"}.getStr=="neighbor":inc current[slot].stolen
+      else:discard
+    result.metrics.add current
+    previous=current
   if d.hasKey("final"):
     require(d["final"]["delivered"].getInt == deliveries, "Delivery summary mismatch")
 
