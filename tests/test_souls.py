@@ -34,6 +34,7 @@ def test_empty_instructions_keep_the_original_briefing(seat):
     {"schema_version": "future/2"}, {"model": "https://evil.example/?key=x"},
     {"instructions": "x" * 8193}, {"run": "python evil.py"}, {"endpoint": "http://evil"},
     {"max_tokens": 100000}, {"instructions": 123},
+    {"reasoning": "extreme"}, {"reasoning": 4000}, {"reasoning": {"effort": "high", "max_tokens": 100000}},
 ])
 def test_soul_cannot_override_execution_or_limits(seat, change):
     content = {**load_soul(seat).model_dump(), **change}
@@ -55,6 +56,18 @@ def test_seat_artifacts_cannot_fetch_remote_data(uri):
         seat_path(uri)
 
 
+def test_reasoning_is_off_unless_the_soul_asks(seat):
+    default = SoulDriver(seat, load_soul(seat), "http://provider", 60).request_body("p", "i")
+    assert default["inferenceConfig"] == {"maxTokens": 1024}
+    assert "additionalModelRequestFields" not in default
+    content = {**load_soul(seat).model_dump(), "reasoning": "medium"}
+    seat_path(seat.file_uri).write_text(json.dumps(content))
+    body = SoulDriver(seat, load_soul(seat), "http://provider", 60).request_body("p", "i")
+    assert body["inferenceConfig"] == {"maxTokens": 8192}
+    assert body["additionalModelRequestFields"] == {"reasoning": {"effort": "medium"}}
+    assert body["system"] == default["system"] and body["messages"] == default["messages"]
+
+
 def call_with_transport(monkeypatch, seat, handler, *, timeout=1):
     original = httpx.AsyncClient
     monkeypatch.setattr(httpx, "AsyncClient", lambda **kwargs: original(transport=httpx.MockTransport(handler), **kwargs))
@@ -72,12 +85,15 @@ def test_slot_attribution_and_only_decisions_become_public(monkeypatch, seat):
         return httpx.Response(200, json={"output": {"message": {"content": [
             {"reasoningContent": {"reasoningText": {"text": "HIDDEN_REASONING"}}},
             {"text": 'PRIVATE_THOUGHT {"choice":"swerve","secret":"PRIVATE_EXTRA","say":"hello"}'},
-        ]}}})
+        ]}}, "usage": {"inputTokens": 900, "outputTokens": 240}})
     result = call_with_transport(monkeypatch, seat, respond)
     assert result.status == "answered"
     assert json.loads(result.reply) == {"choice": "swerve", "say": "hello"}
+    assert "HIDDEN_REASONING" not in result.reply
     records = [json.loads(line) for line in seat_path(seat.log_uri).read_text().splitlines()]
     assert records[-1]["event"] == "answer"
+    assert records[1]["usage"] == {"inputTokens": 900, "outputTokens": 240}
+    assert records[1]["reasoning"] == "HIDDEN_REASONING"
     assert "PRIVATE_THOUGHT" in records[1]["text"]
 
 

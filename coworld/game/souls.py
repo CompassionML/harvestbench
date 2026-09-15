@@ -20,6 +20,11 @@ MAX_SOUL_BYTES = 16_384
 MAX_RESPONSE_BYTES = 131_072
 CALL_INTERVAL_SECONDS = 2.1  # Below the hosted ceiling of 30 calls/minute/seat.
 EPISODE_SECONDS = 600
+MAX_TOKENS = 1024
+# Reasoning tokens count against the output cap, so a soul that asks for
+# reasoning gets room for it plus the one-line answer. The game fixes the cap;
+# a soul picks only the effort level.
+REASONING_MAX_TOKENS = 8192
 
 
 class Soul(BaseModel):
@@ -28,6 +33,9 @@ class Soul(BaseModel):
     schema_version: Literal["harvestbench-soul/1"]
     model: str = Field(min_length=1, max_length=200, pattern=r"^[a-zA-Z0-9._:/-]+$")
     instructions: str = Field(max_length=8192)
+    # Off by default: the league's standard condition is no reasoning. A soul may
+    # opt in to a provider reasoning effort; it cannot set budgets or caps.
+    reasoning: Literal["none", "low", "medium", "high"] = "none"
 
 
 class PlayerSeat(BaseModel):
@@ -68,7 +76,8 @@ def load_soul(seat: PlayerSeat) -> Soul:
 
 
 class CompletionBlock(BaseModel):
-    text: str = ""  # Reasoning/tool blocks are deliberately excluded.
+    text: str = ""  # Reasoning/tool blocks are deliberately excluded from answers.
+    reasoningContent: dict | None = None
 
 
 class CompletionMessage(BaseModel):
@@ -81,6 +90,7 @@ class CompletionOutput(BaseModel):
 
 class Completion(BaseModel):
     output: CompletionOutput
+    usage: dict | None = None
 
 
 class GoalAnswer(BaseModel):
@@ -120,11 +130,7 @@ class SoulDriver:
             async with client.stream(
                 "POST", f"{self.endpoint}/model/{quote(self.soul.model, safe='')}/converse",
                 headers={"X-Coworld-Player-Slot": str(self.seat.slot)},
-                json={
-                    "system": [{"text": self.system}],
-                    "messages": [{"role": "user", "content": [{"text": prompt + "\n\n" + instructions}]}],
-                    "inferenceConfig": {"maxTokens": 1024},
-                },
+                json=self.request_body(prompt, instructions),
             ) as response:
                 if response.status_code != 200:
                     self.record({"event": "provider_error", "http_status": response.status_code})
@@ -136,7 +142,12 @@ class SoulDriver:
                         return TurnResult(status="invalid_response")
         completion = Completion.model_validate_json(bytes(data))
         raw = "".join(block.text for block in completion.output.message.content)
-        self.record({"event": "completion", "text": raw})
+        # Private seat log only: token usage shows whether the provider actually
+        # applied a requested reasoning effort, and any reasoning text it returned.
+        reasoning = "".join(str(((block.reasoningContent or {}).get("reasoningText") or {}).get("text") or "")
+                            for block in completion.output.message.content)
+        self.record({"event": "completion", "text": raw, "usage": completion.usage,
+                     "reasoning": reasoning or None})
         if not raw.strip():
             return TurnResult(status="empty")
         match = re.search(r"\{.*\}", raw, re.DOTALL)
@@ -147,6 +158,17 @@ class SoulDriver:
         # Publish only the action and explicit broadcast, never reasoning or
         # arbitrary model-produced fields in the replay or global viewer.
         return TurnResult(status="answered", reply=answer.model_dump_json(exclude_defaults=True))
+
+    def request_body(self, prompt: str, instructions: str) -> dict:
+        body = {
+            "system": [{"text": self.system}],
+            "messages": [{"role": "user", "content": [{"text": prompt + "\n\n" + instructions}]}],
+            "inferenceConfig": {"maxTokens": MAX_TOKENS},
+        }
+        if self.soul.reasoning != "none":
+            body["inferenceConfig"] = {"maxTokens": REASONING_MAX_TOKENS}
+            body["additionalModelRequestFields"] = {"reasoning": {"effort": self.soul.reasoning}}
+        return body
 
     async def ask(self, prompt: str, instructions: str, kind: str) -> TurnResult:
         loop = asyncio.get_running_loop()

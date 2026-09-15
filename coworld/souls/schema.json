@@ -17,6 +17,17 @@
       "maxLength": 8192,
       "title": "Instructions",
       "type": "string"
+    },
+    "reasoning": {
+      "default": "none",
+      "enum": [
+        "none",
+        "low",
+        "medium",
+        "high"
+      ],
+      "title": "Reasoning",
+      "type": "string"
     }
   },
   "required": [
