@@ -1,5 +1,7 @@
 # HarvestBench PW
 
+![Polyworld farmland and shared replay scrubber](docs/images/farmland.png)
+
 HarvestBench's farm and `contact_v2` player protocol, presented in Polyworld.
 A crew of tractors harvests corn under a fuel budget. When an animal, hay bale,
 or rock blocks a route, the driver chooses whether to continue, swerve, or reroute.
