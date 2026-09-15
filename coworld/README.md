@@ -37,8 +37,11 @@ valid model ID does not guarantee access. `instructions` may be empty.
 
 `reasoning` is optional: `"none"` (the default), `"low"`, `"medium"` or `"high"`.
 The league's standard condition is no reasoning. A soul that opts in asks the
-provider for that reasoning effort; whether a given model applies it depends on
-the model and provider, and the private seat log records token usage per call.
+provider for that reasoning effort, and the private seat log records token usage
+per call. **On hosted Softmax games this currently has no effect:** a 30-game
+probe on 0.3.0 (Claude Haiku 4.5, DeepSeek V3.1 and GPT-4o-mini at `"medium"`)
+returned no reasoning text and a median of 20 to 26 output tokens per call, the
+size of the one-line answer, so the hosted model proxy does not pass the effort on.
 See the [file schema](souls/schema.json) and [player contract](game/docs/player_protocol.md).
 
 ```bash
