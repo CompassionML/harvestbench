@@ -32,7 +32,7 @@ cameraControl.enabled = false
 var followSelection = false
 var yaw = 0.72'f32
 var pitch = 0.95'f32
-var distance = 42'f32
+var distance = 60'f32
 var target = vec3(0,0,0)
 var frameIndex = 0
 var lastFrame = epochTime()
@@ -51,7 +51,7 @@ when defined(emscripten):
   proc harvestReplayChanged(): cint {.importc, nodecl.}
 
 proc point(pos: JsonNode, y=0.0'f32): Vec3 =
-  vec3(pos[0].getInt.float32-width/2+0.5, y, pos[1].getInt.float32-height/2+0.5)
+  vec3((pos[0].getInt.float32-width/2+0.5)*TileSize.float32, y, (pos[1].getInt.float32-height/2+0.5)*TileSize.float32)
 
 proc shade(c: ColorRGBX, f: float32): ColorRGBX =
   rgbx(uint8(c.r.float32*f),uint8(c.g.float32*f),uint8(c.b.float32*f),c.a)
@@ -72,6 +72,22 @@ var visualFraction=0'f32
 var visualTick=0'f32
 var cues:seq[Cue]
 
+proc entityPhase(entity:JsonNode):float32 =
+  for ch in entity["id"].getStr:result+=ch.ord.float32*0.17
+
+proc deathAge(entity:JsonNode):float32 =
+  if entity["alive"].getBool:return 0
+  for i in countdown(frameIndex,0):
+    for event in recording.frames[i]["events"]:
+      if event{"type"}.getStr=="trample" and event{"entity_id"}.getStr==entity["id"].getStr:
+        return visualTick-recording.frames[i]["tick"].getInt.float32
+  visualTick
+
+proc entityPosition(entity:JsonNode):Vec3 =
+  result=point(entity["pos"])
+  if entity["kind"].getStr=="creature":
+    result+=animalWalk((visualTick-deathAge(entity))/6,entityPhase(entity))
+
 proc drawFarm() =
   renderer.clear()
   for p in recording.data["walls"]: box(point(p),vec3(0.85,0.6,0.85),rgbx(115,119,109,255))
@@ -87,8 +103,8 @@ proc drawFarm() =
         if neighbor["type"].getStr != "fence": continue
         let q=point(neighbor["pos"])
         let delta=q-p
-        if (abs(delta.x-1)<0.01 and abs(delta.z)<0.01) or
-           (abs(delta.z-1)<0.01 and abs(delta.x)<0.01):
+        if (abs(delta.x-TileSize.float32)<0.01 and abs(delta.z)<0.01) or
+           (abs(delta.z-TileSize.float32)<0.01 and abs(delta.x)<0.01):
           for y in [0.25'f32,0.49]:
             box((p+q)*0.5+vec3(0,y,0),vec3(abs(delta.x)+0.06,0.065,abs(delta.z)+0.06),wood)
     else: box(p,vec3(0.8,0.65,0.7),rgbx(128,130,118,255))
@@ -96,7 +112,7 @@ proc drawFarm() =
     var p=vec3(0)
     for tile in recording.data["barn"]: p+=point(tile)
     p=p/recording.data["barn"].len.float32
-    let length=recording.data["barn"].len.float32+0.3
+    let length=recording.data["barn"].len.float32*TileSize.float32+0.3
     let red=rgbx(164,69,47,255)
     let roof=rgbx(78,80,73,255)
     box(p,vec3(1.18,1.0,length),red)
@@ -116,8 +132,8 @@ proc drawFarm() =
   for field in [(1.0'f32,5.0'f32,3.0'f32,11.0'f32),(16.0'f32,21.0'f32,10.0'f32,14.0'f32)]:
     var x=field[0]+0.2
     while x<field[1]:
-      renderer.addLine(vec3(x-width/2,0.012,field[2]-height/2+0.2),
-        vec3(x-width/2,0.012,field[3]-height/2-0.2),rgbx(109,87,51,90),0.017)
+      renderer.addLine(vec3((x-width/2)*TileSize.float32,0.012,(field[2]-height/2+0.2)*TileSize.float32),
+        vec3((x-width/2)*TileSize.float32,0.012,(field[3]-height/2-0.2)*TileSize.float32),rgbx(109,87,51,90),0.017)
       x+=0.32
   for crop in recording.crops[frameIndex]:
     let p=point(crop["pos"])
@@ -137,7 +153,7 @@ proc drawFarm() =
       var phase=0'f32
       for ch in entity["id"].getStr:phase+=ch.ord.float32*0.17
       cuteAnimal(renderer,p,entity{"species"}.getStr(entity{"type"}.getStr),entity["alive"].getBool,
-        visualTick/6,phase,cues.impactAge("trample",entityId=entity["id"].getStr))
+        visualTick/6,phase,deathAge(entity))
     of "rock":
       box(p,vec3(0.55,0.35,0.48),rgbx(125,129,128,255))
       box(p+vec3(0.03,0.35,0),vec3(0.32,0.13,0.3),rgbx(151,153,143,255))
@@ -154,21 +170,23 @@ proc drawFarm() =
       let decay=1-hit/6
       p+=vec3(sin(hit*16)*0.13*decay,abs(sin(hit*11))*0.08*decay,cos(hit*19)*0.06*decay)
     let c=if hit<5 and (hit*5).int mod 2==0:rgbx(255,101,73,255) else:colors[slot mod colors.len]
-    box(p+vec3(0,0.2,0),vec3(0.68,0.3,0.48),c)
-    box(p+vec3(-0.15,0.5,0),vec3(0.3,0.32,0.36),rgbx(179,211,211,255))
-    box(p+vec3(-0.15,0.82,0),vec3(0.39,0.06,0.44),c)
+    template tractorBox(at,size:Vec3,color:ColorRGBX)=
+      box(p+(at-p)*1.6,size*1.6,color)
+    tractorBox(p+vec3(0,0.2,0),vec3(0.68,0.3,0.48),c)
+    tractorBox(p+vec3(-0.15,0.5,0),vec3(0.3,0.32,0.36),rgbx(179,211,211,255))
+    tractorBox(p+vec3(-0.15,0.82,0),vec3(0.39,0.06,0.44),c)
     for dx in [-0.23'f32,0.23]:
-      for dz in [-0.27'f32,0.27]: box(p+vec3(dx,0.03,dz),vec3(0.22,0.32,0.15),rgbx(42,46,40,255))
+      for dz in [-0.27'f32,0.27]: tractorBox(p+vec3(dx,0.03,dz),vec3(0.22,0.32,0.15),rgbx(42,46,40,255))
     # The load changes the 3D model: a wooden rear basket filled with ears
     # of corn and green husks. Empty tractors have only the bare rear rack.
     let cargo=p+vec3(-0.56,0.23,0)
-    box(cargo,vec3(0.45,0.07,0.52),rgbx(128,91,53,255))
+    tractorBox(cargo,vec3(0.45,0.07,0.52),rgbx(128,91,53,255))
     if actor["carrying"].getBool:
       let stolen=recording.stolenCargo(frameIndex,slot)
-      for dz in [-0.25'f32,0.25]:box(cargo+vec3(0,0.07,dz),vec3(0.47,0.19,0.04),rgbx(188,141,78,255))
-      for dx in [-0.21'f32,0.21]:box(cargo+vec3(dx,0.07,0),vec3(0.04,0.19,0.52),rgbx(188,141,78,255))
+      for dz in [-0.25'f32,0.25]:tractorBox(cargo+vec3(0,0.07,dz),vec3(0.47,0.19,0.04),rgbx(188,141,78,255))
+      for dx in [-0.21'f32,0.21]:tractorBox(cargo+vec3(dx,0.07,0),vec3(0.04,0.19,0.52),rgbx(188,141,78,255))
       for dx in [-0.13'f32,0,0.13]:
-        for dz in [-0.16'f32,0,0.16]:cornCob(renderer,cargo+vec3(dx,0.14,dz))
+        for dz in [-0.16'f32,0,0.16]:cornCob(renderer,p+(cargo+vec3(dx,0.14,dz)-p)*1.6)
       if stolen:renderer.addCircle(p+vec3(0,0.018,0),0.55,rgbx(239,167,39,75))
   for cue in cues:
     let event=cue.event
@@ -206,7 +224,7 @@ proc selectedPosition():Vec3 =
     return point(recording.frames[frameIndex]["agents"][parseInt(selection.key)]["pos"])
   if selection.kind=="entity":
     for entity in recording.frames[frameIndex]["entities"]:
-      if entity["id"].getStr==selection.key:return point(entity["pos"])
+      if entity["id"].getStr==selection.key:return entityPosition(entity)
   if selection.pos!=nil:return point(selection.pos)
   vec3(0)
 
@@ -229,7 +247,7 @@ proc pickObject(vp:Mat4) =
   for actor in frame["agents"]:
     consider(Selection(kind:"tractor",key: $actor["slot"].getInt),point(actor["pos"]),24)
   for entity in frame["entities"]:
-    consider(Selection(kind:"entity",key:entity["id"].getStr),point(entity["pos"]),20)
+    consider(Selection(kind:"entity",key:entity["id"].getStr),entityPosition(entity),16)
   for crop in recording.crops[frameIndex]:
     consider(Selection(kind:"crop",pos:crop["pos"]),point(crop["pos"]),19)
   for tile in recording.data["barn"]:
@@ -260,7 +278,7 @@ proc frame() =
   if window.buttonDown[MouseRight]:
     yaw+=window.mouseDelta.x.float32*0.005
     pitch=clamp(pitch+window.mouseDelta.y.float32*0.005,0.3'f32,1.5'f32)
-  distance=clamp(distance*pow(0.9'f32,window.scrollDelta.y),12'f32,65'f32)
+  distance=clamp(distance*pow(0.9'f32,clamp(window.scrollDelta.y,-2'f32,2'f32)),12'f32,125'f32)
   transport.startFrame(dt,6)
   let restore=transport.takeRestore()
   if restore>=0:
@@ -277,7 +295,7 @@ proc frame() =
     target=mix(target,selectedPosition(),min(1'f32,dt*3))
   else: target=mix(target,vec3(0,0,0),min(1'f32,dt*3))
   let eye=target+vec3(cos(yaw)*cos(pitch)*distance,sin(pitch)*distance,sin(yaw)*cos(pitch)*distance)
-  var vp=perspective(45'f32,window.size.x.float32/max(1'f32,window.size.y.float32),0.1'f32,200'f32)*lookAt(eye,target,vec3(0,1,0))
+  var vp=perspective(45'f32,window.size.x.float32/max(1'f32,window.size.y.float32),0.1'f32,400'f32)*lookAt(eye,target,vec3(0,1,0))
   # Shift projected scene left to reserve the inspector column.
   var framing=mat4()
   framing[3,0] = -SidebarWidth/window.size.x.float32*0.7
