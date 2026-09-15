@@ -14,3 +14,15 @@ scripts/probe_system.cmd
 coworld/build/
 coworld/dist/
 tmp/
+
+# Polyworld build outputs
+tmp/
+build/
+examples/*/emscripten/
+examples/harvestbench/harvestbench
+
+.venv/
+*.egg-info/
+.playwright-cli/
+output/
+coworld/game/client/polyworld/

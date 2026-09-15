@@ -29,7 +29,7 @@ name = "harvestbench-preflight-" + uuid.uuid4().hex[:12]
 image = name + ":model-service"
 
 subprocess.run([
-    "docker", "build", "--build-arg", f"GAME_IMAGE={manifest['game']['runnable']['image']}",
+    "docker", "build", "--platform", "linux/amd64", "--build-arg", f"GAME_IMAGE={manifest['game']['runnable']['image']}",
     "-f", str(root / "coworld/Dockerfile.test"), "-t", image, str(root),
 ], check=True)
 
@@ -40,7 +40,7 @@ inspected = subprocess.run(["docker", "network", "inspect", network], capture_ou
 if inspected.returncode != 0:
     subprocess.run(["docker", "network", "create", network], check=True)
 container = subprocess.check_output([
-    "docker", "run", "--detach", "--rm", "--name", name, "--network", network,
+    "docker", "run", "--platform", "linux/amd64", "--detach", "--rm", "--name", name, "--network", network,
     "--cpus", "1", "--memory", "256m",
     "--health-cmd", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8081/healthz')\"",
     "--health-interval", "1s", "--health-timeout", "2s", "--health-retries", "20",

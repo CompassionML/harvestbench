@@ -17,5 +17,7 @@ COPY coworld/shared /app/coworld/shared
 COPY coworld/game /app/coworld/game
 COPY coworld/grader /app/coworld/grader
 
+RUN test -s /app/coworld/game/client/polyworld/harvestbench.wasm
+
 EXPOSE 8080
 CMD ["python", "-m", "coworld.game.server"]

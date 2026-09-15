@@ -1,5 +1,15 @@
 # HarvestBench Coworld
 
+Replays and the live view use the Polyworld viewer ([details](../docs/POLYWORLD_VIEWER.md)). Build it before building the image:
+
+```sh
+coworld/tools/build_replay_viewer.sh "$PWD/coworld/build/static-replay-viewer"
+```
+
+The live and replay pages use the shared GOTA/Paintbot transport.
+Repository: `CompassionML/harvestbench`; game name: `harvestbench`.
+The player protocol below is inherited unchanged from HarvestBench.
+
 Harvest Rush, the game behind [HarvestBench](https://arxiv.org/abs/2609.04444),
 is a crew of tractors harvesting corn with a fuel budget. Animals, hay and
 rocks block their routes. The autopilot asks each driver whether to drive
@@ -158,19 +168,16 @@ the workflow installs that environment automatically.
 
 ### Release through GitHub
 
-After merging this PR, run the existing workflow with version `0.2.0` and upload
-enabled. The repository's `SOFTMAX_TOKEN` secret must belong to the Coworld owner.
-No local Docker installation or additional model-provider secret is needed:
+Pull requests build the viewer, run the Nim and Python tests, build the image and
+check the upload preflight; they never upload. To publish, dispatch the workflow on
+`main`. The repository's `SOFTMAX_TOKEN` secret must belong to the Coworld owner:
 
 ```bash
 gh workflow run coworld.yml --repo CompassionML/harvestbench --ref main \
-  -f version=0.2.0 -f upload=true
+  -f version=0.3.0 -f upload=true
 ```
 
-The workflow builds, tests, verifies the upload preflight, uploads, and waits for
-hosted certification. Send the resulting Coworld ID to the league administrator
-for the roster and runtime cutover. Do not switch the live league on a failed
-hosted certification.
+The workflow uploads the certified manifest and waits for hosted certification.
 
 ## Migration and privacy
 
