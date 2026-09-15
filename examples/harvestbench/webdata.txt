@@ -1,0 +1,7 @@
+fonts/Rubik-Regular.ttf
+fonts/Rubik-Bold.ttf
+fonts/OverpassMono-Regular.ttf
+themes/main
+ui
+icons
+terrain

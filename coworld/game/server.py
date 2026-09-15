@@ -42,6 +42,7 @@ from typing import Any
 
 import uvicorn
 from fastapi import FastAPI, WebSocket
+from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 
 from coworld.shared.io import (JSON, artifact_method, get_logger, read_data,
@@ -199,18 +200,29 @@ def player_client() -> HTMLResponse:
 
 @app.get("/client/global")
 def global_client() -> HTMLResponse:
-    return _html("global.html")
+    return RedirectResponse("/polyworld/index.html?replay=/polyworld-replay.json&live=1")
 
 
 @app.get("/client/replay")
 def replay_client() -> HTMLResponse:
-    return _html("replay.html")
+    return RedirectResponse("/polyworld/index.html?replay=/polyworld-replay.json")
 
 
 @app.get("/client/harvest_view.js")
 def view_script() -> Response:
     return Response((CLIENT_DIR / "harvest_view.js").read_text(encoding="utf-8"),
                     media_type="application/javascript")
+
+
+# The bundle is built before the game image; no second replay UI is maintained.
+app.mount("/polyworld", StaticFiles(directory=CLIENT_DIR / "polyworld", check_dir=False), name="polyworld")
+
+@app.get("/polyworld-replay.json")
+def polyworld_replay() -> Response:
+    if REPLAY_MODE:
+        return Response(read_data(REPLAY_LOAD_URI), media_type=JSON)
+    return Response(json.dumps({**_replay_payload(), "live_done": state.done}),
+                    media_type=JSON, headers={"Cache-Control": "no-store"})
 
 
 # -- websockets -------------------------------------------------------------

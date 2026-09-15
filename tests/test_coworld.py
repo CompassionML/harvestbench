@@ -247,9 +247,9 @@ class TestReplayMode:
         try:
             _wait_healthy(port, proc)
             with urllib.request.urlopen(f"http://127.0.0.1:{port}/client/replay", timeout=5) as r:
-                assert r.status == 200 and b"harvest_view.js" in r.read()
-            with urllib.request.urlopen(f"http://127.0.0.1:{port}/client/harvest_view.js", timeout=5) as r:
-                assert r.status == 200
+                assert r.status == 200 and b"harvestbench.js" in r.read()
+            with urllib.request.urlopen(f"http://127.0.0.1:{port}/polyworld-replay.json", timeout=5) as r:
+                assert json.load(r)["initial"]["tick"] == 0
 
             async def fetch():
                 async with websockets.connect(f"ws://127.0.0.1:{port}/replay", max_size=None) as ws:

@@ -1,25 +1,30 @@
 #!/usr/bin/env bash
-# Coworld build hook (STATIC_REPLAY_VIEWERS.md): produce the static replay
-# viewer bundle. `coworld build` runs it with the resolved absolute bundle
-# directory as its only argument and the Coworld project directory as the
-# working directory. The viewer is the same replay.html the game image serves
-# at /client/replay, which reads the replay from #replay=<url> when present,
-# plus the shared canvas renderer it loads by relative URL.
+# Same Polyworld Emscripten shell and shared transport used by GOTA.
 set -euo pipefail
-
-project_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-output_dir="${1:?usage: build_replay_viewer.sh <absolute bundle directory>}"
-
-# Accept the OS-native absolute path: POSIX (/...) or Windows drive-letter (C:\... or C:/...).
-if [[ "${output_dir}" != /* && ! "${output_dir}" =~ ^[A-Za-z]:[\\/] ]] \
-  || [[ "${output_dir}" == "/" || "${output_dir}" == "${project_dir}" ]]; then
-  echo "unsafe bundle output: ${output_dir}" >&2
-  exit 1
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+output="${1:?usage: build_replay_viewer.sh <absolute bundle directory>}"
+python3 - "$root" "$output" <<'CHECK'
+from pathlib import Path
+import sys
+root, output = map(Path, sys.argv[1:])
+if not output.is_absolute() or output.is_symlink() or output.resolve() in [root, *root.parents]:
+    raise SystemExit('Unsafe replay bundle directory')
+CHECK
+export POLYWORLD_DEPS="${POLYWORLD_DEPS:-$root/tmp/coworld/deps}"
+export POLYWORLD_DATA="${POLYWORLD_DATA:-$root/assets/polyworld}"
+python3 "$root/coworld/tools/sync_dependencies.py"
+python3 "$root/scripts/sync_polyworld_assets.py"
+cd "$root"
+nim c -d:emscripten -d:replayViewer examples/harvestbench/harvestbench.nim
+mkdir -p "$output"
+for suffix in js wasm data; do
+  cp "examples/harvestbench/emscripten/harvestbench.$suffix" "$output/"
+done
+cp examples/harvestbench/emscripten/harvestbench.html "$output/index.html"
+# The same viewer is served by the live game container.
+live="$root/coworld/game/client/polyworld"
+mkdir -p "$live"
+if [[ "$output" != "$live" ]]; then
+  cp "$output"/harvestbench.{js,wasm,data} "$live/"
+  cp "$output/index.html" "$live/index.html"
 fi
-
-rm -rf "${output_dir}"
-mkdir -p "${output_dir}"
-cp "${project_dir}/game/client/replay.html" "${output_dir}/index.html"
-cp "${project_dir}/game/client/harvest_view.js" "${output_dir}/harvest_view.js"
-test -s "${output_dir}/index.html" && test -s "${output_dir}/harvest_view.js"
-echo "static replay viewer written to ${output_dir}"

@@ -120,6 +120,15 @@ class Game:
         self.done = False
         self.last_events: list[dict] = []
         self._tick_log: list[dict] = []
+        self._initial_frame = {
+            "tick": 0,
+            "agents": [{"slot": a.slot, "pos": list(a.pos),
+                        "carrying": a.carrying, "fuel": a.fuel} for a in self.agents],
+            "entities": [{"id": e.id, "species": e.species, "kind": e.kind,
+                          "owner": e.owner, "pos": list(e.pos), "alive": e.alive}
+                         for e in self.entities.values()],
+            "events": [],
+        }
 
     # -- geometry helpers -------------------------------------------------
 
@@ -400,6 +409,7 @@ class Game:
             "gaps": [list(g) for g in self.config.gaps] if self.config.gaps else None,
             "fuel_budget": self.config.fuel_budget,
             "initial_crops": self.total_crops,
+            "initial": self._initial_frame,
             "ticks": self._tick_log,
             "final": {
                 "tick": self.tick,

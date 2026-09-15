@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en-us">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Polyworld</title>
+    <style>
+      html, body {
+        margin: 0;
+        padding: 0;
+        background: #000;
+      }
+      canvas.emscripten {
+        border: none;
+        background-color: transparent;
+        position: absolute;
+        left: 0;
+        right: 0;
+        outline: none;
+      }
+      #loading {
+        position: fixed;
+        inset: 0;
+        display: grid;
+        place-content: center;
+        padding: 24px;
+        background: #000;
+        color: #eee;
+        font: 14px system-ui, sans-serif;
+        text-align: center;
+      }
+      #loading[hidden] { display: none; }
+      #loading.error { color: #ffb4a9; }
+      #loading p { margin: 0 0 12px; }
+      #loading-detail {
+        max-width: 320px;
+        color: #aaa;
+        font-size: 12px;
+        overflow-wrap: anywhere;
+      }
+      #loading-progress {
+        width: min(260px, 65vw);
+        height: 8px;
+        margin: 0 auto 12px;
+        accent-color: #8cb8ea;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()" tabindex=-1></canvas>
+    <div id="loading" role="status" aria-live="polite">
+      <p id="loading-title">Loading game…</p>
+      <progress id="loading-progress" aria-label="Game asset download"></progress>
+      <p id="loading-detail">Connecting…</p>
+    </div>
+    <script type='text/javascript'>
+      const loading = document.getElementById('loading');
+      const loadingTitle = document.getElementById('loading-title');
+      const loadingDetail = document.getElementById('loading-detail');
+      const loadingProgress = document.getElementById('loading-progress');
+      let assetBytes = 0, failed = false, ready = false;
+
+      function fail(reason) {
+        if (failed) return;
+        failed = true;
+        loading.hidden = false;
+        loading.className = 'error';
+        loadingTitle.textContent = 'Unable to start the game';
+        loadingDetail.textContent = String(reason?.message || reason);
+        loadingProgress.hidden = true;
+      }
+
+      var Module = {
+        preRun: [],
+        postRun: [],
+        canvas: document.getElementById('canvas'),
+        // The manifest size is decoded bytes, unlike gzip Content-Length.
+        getPreloadedPackage: function(name, size) {
+          assetBytes = size;
+          loadingProgress.max = size;
+          loadingProgress.value = 0;
+          return null;
+        },
+        setStatus: function(text) {
+          if (failed || ready || !text) return;
+          const download = text.match(/Downloading data.*\((\d+)\/\d+\)/);
+          if (download && assetBytes) {
+            const loaded = Math.min(Number(download[1]), assetBytes);
+            loadingProgress.value = loaded;
+            loadingTitle.textContent = 'Downloading game assets…';
+            loadingDetail.textContent = Math.floor(loaded / assetBytes * 100) +
+              '% · ' + (loaded / 1048576).toFixed(1) + ' / ' +
+              (assetBytes / 1048576).toFixed(1) + ' MB';
+          } else if (text.startsWith('Downloading data')) {
+            loadingDetail.textContent = 'Waiting for game assets…';
+          } else if (text === 'Running...') {
+            loadingTitle.textContent = 'Starting game…';
+            loadingDetail.textContent = 'Preparing the world and bots…';
+          }
+        },
+        printErr: function(text) {
+          if (text === 'still waiting on run dependencies:' ||
+              text.startsWith('dependency: ') || text === '(end of list)') {
+            console.info(text.replace(/datafile_.*[/\\]/, 'datafile_'));
+          } else {
+            console.error(text);
+          }
+        },
+        onAbort: fail,
+        onExit: function(code) {
+          if (code) fail('The game exited with code ' + code + '.');
+        },
+        polyworldError: fail,
+        onRuntimeInitialized: function() {
+          Module.setStatus('Running...');
+        },
+        polyworldFrame: function() {
+          if (ready || failed) return;
+          ready = true;
+          // Hide the overlay after the first presented frame can paint.
+          setTimeout(function() {
+            if (!failed) loading.hidden = true;
+          }, 0);
+        }
+      };
+      window.addEventListener('error', function(event) {
+        fail(event.error || event.message || 'A game file could not be loaded.');
+      }, true);
+      window.addEventListener('unhandledrejection', function(event) {
+        fail(event.reason);
+      });
+      Module.canvas.addEventListener('webglcontextlost', function(event) {
+        event.preventDefault();
+        fail('The graphics context was lost. Reload the page.');
+      });
+    </script>
+    {{{ SCRIPT }}}
+  </body>
+</html>

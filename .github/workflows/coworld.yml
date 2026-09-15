@@ -1,76 +1,41 @@
-# Build, certify and (optionally) upload the HarvestBench Coworld.
-#
-# The Coworld toolchain needs Docker for build and certification, which the
-# lab machine does not have, so this runs on a GitHub runner. Upload needs a
-# Softmax user credential in the SOFTMAX_TOKEN repository secret (from
-# `softmax get-token` on a logged-in machine); the first upload of the
-# `harvestbench` game name fixes its owner to that account.
-name: coworld
-
+name: HarvestBench PW
 on:
+  push:
+    branches: [main]
   pull_request:
-    paths:
-      - "coworld/**"
-      - "harvest/**"
-      - "tests/**"
-      - ".github/workflows/coworld.yml"
   workflow_dispatch:
-    inputs:
-      version:
-        description: "Coworld version to write into the manifest (e.g. 0.1.0)"
-        required: true
-        default: "0.2.0"
-      upload:
-        description: "Upload to Softmax after certification"
-        type: boolean
-        default: true
-
+permissions:
+  contents: read
 jobs:
-  coworld:
+  test:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0   # coworld build pins source_url to the current commit
-
       - uses: astral-sh/setup-uv@v6
         with:
-          python-version: "3.12"
-
-      - name: Install the Coworld and Softmax CLIs
+          python-version: '3.12'
+      - uses: treeform/setup-nim-action@v6
+      - name: Install browser compiler and Python runtime
         run: |
-          uv venv .coworld-tools --python 3.12
-          uv pip install --python .coworld-tools/bin/python coworld==0.1.47
-          echo "$GITHUB_WORKSPACE/.coworld-tools/bin" >> "$GITHUB_PATH"
-
-      - name: Build
-        run: coworld build --project coworld --version "${{ inputs.version || '0.2.0' }}"
-
-      - name: Test the game-owned soul runtime
+          sudo apt-get update -qq
+          sudo apt-get install -y emscripten
+          uv venv --python 3.12
+          uv pip install -e . pytest fastapi==0.115.5 uvicorn==0.34.2 websockets==15.0.1 httpx==0.28.1 pydantic==2.13.5
+          echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
+      - name: Build the shared Polyworld viewer
+        run: coworld/tools/build_replay_viewer.sh "$PWD/coworld/build/static-replay-viewer"
+      - name: Replay restoration and gameplay tests
         run: |
-          docker build -f coworld/Dockerfile.test -t harvestbench-coworld-test .
-          docker run --rm --network none --cpus 2 --memory 2g harvestbench-coworld-test
-
-      - name: Verify cold and cached upload preflight (no publication)
-        run: python coworld/tools/release.py coworld/dist/coworld_manifest.json --check-upload-preflight
-
-      - name: Keep the built manifest and certification artifacts
-        if: always()
+          nim r -o:tmp/test_harvest_replay tests/test_harvest_replay.nim
+          python scripts/demo_polyworld.py
+          python -m pytest -q
+      - name: Build the game image
+        run: docker build -f coworld/Dockerfile -t harvestbench-pw:test .
+      - name: Keep runnable viewer and sample episode
         uses: actions/upload-artifact@v4
         with:
-          name: coworld-${{ inputs.version || '0.2.0' }}
+          name: harvestbench-pw-viewer
           path: |
-            coworld/dist/
-            tmp/coworld-cert-*/
-          if-no-files-found: warn
-
-      - name: Upload to Softmax
-        if: ${{ inputs.upload }}
-        env:
-          SOFTMAX_TOKEN: ${{ secrets.SOFTMAX_TOKEN }}
-        run: |
-          test -n "$SOFTMAX_TOKEN" || { echo "SOFTMAX_TOKEN secret is not set"; exit 1; }
-          softmax set-token "$SOFTMAX_TOKEN"
-          softmax status
-          python coworld/tools/release.py coworld/dist/coworld_manifest.json --upload
+            coworld/build/static-replay-viewer/
+            tmp/demo/

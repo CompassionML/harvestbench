@@ -187,6 +187,7 @@ class TestPerceptionV7:
         text = format_observation(obs, 0)
         assert "Right next to your tractor:" in text
         assert "rock@(3,2) to your right (east)" in text
-        assert "wild cow@(2,1) directly above you (north)" in text
+        assert "cow@(2,1) directly above you (north)" in text
+        assert "wild cow" not in text  # current protocol uses species names
         assert "pig@(0,0) to" not in text      # not adjacent
         assert "duck@(1,2) to your left" not in text  # dead: plain ground
