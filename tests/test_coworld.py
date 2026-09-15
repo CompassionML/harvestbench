@@ -246,8 +246,13 @@ class TestReplayMode:
         proc = _spawn({"COGAME_LOAD_REPLAY_URI": (episode["out"] / "replay").as_uri()}, port)
         try:
             _wait_healthy(port, proc)
-            with urllib.request.urlopen(f"http://127.0.0.1:{port}/client/replay", timeout=5) as r:
-                assert r.status == 200 and b"harvestbench.js" in r.read()
+            for route in ("replay", "global"):
+                url = f"http://127.0.0.1:{port}/client/{route}"
+                with urllib.request.urlopen(url, timeout=5) as r:
+                    assert r.status == 200 and r.url == url
+                    page = r.read()
+                    assert b"<iframe" in page and b"/polyworld/index.html" in page
+                    assert (b"live=1" in page) == (route == "global")
             with urllib.request.urlopen(f"http://127.0.0.1:{port}/polyworld-replay.json", timeout=5) as r:
                 assert json.load(r)["initial"]["tick"] == 0
 
