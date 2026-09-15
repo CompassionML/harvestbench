@@ -381,7 +381,8 @@ async def _play_game() -> None:
     # Results are the completion marker. All seat logs and replay bytes are closed.
     write_data(RESULTS_URI, json.dumps(state.results), content_type=JSON,
                http_method=artifact_method("COGAME_RESULTS_METHOD"))
-    await asyncio.sleep(1.0)
+    # Let the two-second live viewer poll observe the final frame.
+    await asyncio.sleep(3.0)
     server.should_exit = True
 
 
