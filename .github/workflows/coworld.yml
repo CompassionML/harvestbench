@@ -18,13 +18,16 @@ jobs:
       - uses: treeform/setup-nim-action@v6
       - name: Install browser compiler and Python runtime
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y emscripten
+          git clone --depth 1 --branch 6.0.5 https://github.com/emscripten-core/emsdk.git tmp/emsdk
+          tmp/emsdk/emsdk install 6.0.5
+          tmp/emsdk/emsdk activate 6.0.5
           uv venv --python 3.12
           uv pip install -e . pytest fastapi==0.115.5 uvicorn==0.34.2 websockets==15.0.1 httpx==0.28.1 pydantic==2.13.5
           echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
       - name: Build the shared Polyworld viewer
-        run: coworld/tools/build_replay_viewer.sh "$PWD/coworld/build/static-replay-viewer"
+        run: |
+          source tmp/emsdk/emsdk_env.sh
+          coworld/tools/build_replay_viewer.sh "$PWD/coworld/build/static-replay-viewer"
       - name: Replay restoration and gameplay tests
         run: |
           nim r -o:tmp/test_harvest_replay tests/test_harvest_replay.nim

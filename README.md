@@ -15,7 +15,7 @@ and completed replays. Click a tractor's HUD row to select it for camera followi
 
 ## Run a local replay
 
-Requires Python 3.12+, Nim 2.2.6+, Git, and Emscripten on PATH.
+Requires Python 3.12+, Nim 2.2.6+, Git, and Emscripten 6.0.5+ on PATH.
 
 ```sh
 uv venv --python 3.12
