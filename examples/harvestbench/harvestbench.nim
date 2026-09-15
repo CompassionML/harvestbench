@@ -28,7 +28,7 @@ for (name, data) in farmIcons:
   if not builder.addImage(name, newImage(parseSvg(data))):
     raise newException(ValueError,"Farm icons do not fit in the HUD atlas")
 builder.write(atlasPath)
-let (window, sk) = initGameWindow("HarvestBench PW", atlasPath, ivec2(1440, 900))
+let (window, sk) = initGameWindow("HarvestBench", atlasPath, ivec2(1440, 900))
 initFarmTerrain(recording.data)
 var renderer = initShapeRenderer()
 renderer.opaque = true

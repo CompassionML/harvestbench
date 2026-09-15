@@ -1,22 +1,56 @@
-name: HarvestBench PW
+# Build, test, certify and (optionally) upload the HarvestBench Coworld.
+#
+# The lab machine has no Docker, so this runs on a GitHub runner. The replay
+# viewer is Polyworld (Nim compiled to WebAssembly with Emscripten) and is built
+# before the game image, which serves the same bundle live. Upload needs the
+# Coworld owner's Softmax credential in the SOFTMAX_TOKEN repository secret
+# (from `softmax get-token` on a logged-in machine).
+name: coworld
+
 on:
-  push:
-    branches: [main]
   pull_request:
+    paths:
+      - "coworld/**"
+      - "harvest/**"
+      - "tests/**"
+      - "examples/**"
+      - "src/**"
+      - "assets/**"
+      - "scripts/**"
+      - "config.nims"
+      - "nimby.lock"
+      - "polyworld.nimble"
+      - ".github/workflows/coworld.yml"
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Coworld version to write into the manifest (e.g. 0.3.0)"
+        required: true
+        default: "0.3.0"
+      upload:
+        description: "Upload to Softmax after certification"
+        type: boolean
+        default: true
+
 permissions:
   contents: read
+
 jobs:
-  test:
+  coworld:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # coworld build pins source_url to the current commit
+
       - uses: astral-sh/setup-uv@v6
         with:
-          python-version: '3.12'
+          python-version: "3.12"
+
       - uses: treeform/setup-nim-action@v6
-      - name: Install browser compiler and Python runtime
+
+      - name: Install the browser compiler, game runtime and Coworld CLI
         run: |
           git clone --depth 1 --branch 6.0.5 https://github.com/emscripten-core/emsdk.git tmp/emsdk
           tmp/emsdk/emsdk install 6.0.5
@@ -24,22 +58,57 @@ jobs:
           uv venv --python 3.12
           uv pip install -e . pytest fastapi==0.115.5 uvicorn==0.34.2 websockets==15.0.1 httpx==0.28.1 pydantic==2.13.5
           echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
-      - name: Build the shared Polyworld viewer
+          # The Coworld CLI keeps its own environment so its pins never move the game's.
+          uv venv .coworld-tools --python 3.12
+          uv pip install --python .coworld-tools/bin/python coworld==0.1.47
+
+      - name: Build the Polyworld replay viewer
         run: |
           source tmp/emsdk/emsdk_env.sh
           coworld/tools/build_replay_viewer.sh "$PWD/coworld/build/static-replay-viewer"
+
       - name: Replay restoration and gameplay tests
         run: |
           nim r -o:tmp/test_harvest_replay tests/test_harvest_replay.nim
           nim r -o:tmp/test_harvest_effects tests/test_harvest_effects.nim
           python scripts/demo_polyworld.py
           python -m pytest -q
-      - name: Build the game image
-        run: docker build -f coworld/Dockerfile -t harvestbench-pw:test .
-      - name: Keep runnable viewer and sample episode
+
+      - name: Build
+        run: |
+          source tmp/emsdk/emsdk_env.sh
+          export PATH="$PWD/.coworld-tools/bin:$PATH"
+          coworld build --project coworld --version "${{ inputs.version || '0.3.0' }}"
+
+      - name: Test the game-owned soul runtime
+        run: |
+          docker build -f coworld/Dockerfile.test -t harvestbench-coworld-test .
+          docker run --rm --network none --cpus 2 --memory 2g harvestbench-coworld-test
+
+      - name: Verify cold and cached upload preflight (no publication)
+        run: |
+          export PATH="$PWD/.coworld-tools/bin:$PATH"
+          python coworld/tools/release.py coworld/dist/coworld_manifest.json --check-upload-preflight
+
+      - name: Keep the manifest, viewer, demo and certification artifacts
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: harvestbench-pw-viewer
+          name: coworld-${{ inputs.version || '0.3.0' }}
           path: |
+            coworld/dist/
             coworld/build/static-replay-viewer/
             tmp/demo/
+            tmp/coworld-cert-*/
+          if-no-files-found: warn
+
+      - name: Upload to Softmax
+        if: ${{ inputs.upload }}
+        env:
+          SOFTMAX_TOKEN: ${{ secrets.SOFTMAX_TOKEN }}
+        run: |
+          test -n "$SOFTMAX_TOKEN" || { echo "SOFTMAX_TOKEN secret is not set"; exit 1; }
+          export PATH="$PWD/.coworld-tools/bin:$PATH"
+          softmax set-token "$SOFTMAX_TOKEN"
+          softmax status
+          python coworld/tools/release.py coworld/dist/coworld_manifest.json --upload
