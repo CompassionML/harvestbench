@@ -21,6 +21,18 @@ for suffix in js wasm data; do
   cp "examples/harvestbench/emscripten/harvestbench.$suffix" "$output/"
 done
 cp examples/harvestbench/emscripten/harvestbench.html "$output/index.html"
+# Keep local previews fresh; hosted bundles already have immutable prefixes.
+python3 - "$output" <<'VERSION'
+import hashlib
+import sys
+from pathlib import Path
+bundle = Path(sys.argv[1])
+version = hashlib.sha256((bundle / "harvestbench.wasm").read_bytes()).hexdigest()[:16]
+page = bundle / "index.html"
+html = page.read_text().replace('src="harvestbench.js"', f'src="harvestbench.js?v={version}"')
+html = html.replace('var Module = {', 'var Module = {\n  locateFile: (path, prefix) => prefix + path + "?v=' + version + '",')
+page.write_text(html)
+VERSION
 # The same viewer is served by the live game container.
 live="$root/coworld/game/client/polyworld"
 mkdir -p "$live"

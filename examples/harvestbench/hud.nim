@@ -24,19 +24,34 @@ proc header*(sk:Silky,window:Window,r:Replay,index:int,selection:var Selection,s
   sk.drawRibbon(GameUiPanel(origin:vec2(0),size:vec2(window.size.x.float32,HeaderHeight)))
   sk.text("HARVESTBENCH",vec2(22,13),rgbx(244,230,190,255),"H1",300)
   sk.text("POLYWORLD  /  HARVEST RUSH",vec2(24,55),rgbx(174,193,161,255),"Small")
-  sk.text("Delivered " & $r.delivered[index] & "   Kills " & $r.killed[index],vec2(24,78))
+  sk.drawSprite("farm-corn",vec2(24,79),vec2(21))
+  sk.text($r.delivered[index],vec2(51,80),rgbx(246,207,103,255),"Hud")
+  sk.drawSprite("farm-kill",vec2(105,79),vec2(21))
+  sk.text($r.killed[index],vec2(132,80),rgbx(231,158,148,255),"Hud")
   let seats=r.metrics[index].len
-  let cardWidth=max(145'f32,min(235'f32,(window.size.x.float32-336)/max(1,seats).float32))
+  let cardWidth=max(145'f32,min(286'f32,(window.size.x.float32-336)/max(1,seats).float32))
   for slot,metric in r.metrics[index]:
-    let p=vec2(330+slot.float32*cardWidth,10)
-    let panel=GameUiPanel(origin:p,size:vec2(cardWidth-10,99))
+    let p=vec2(330+slot.float32*cardWidth,9)
+    let panel=GameUiPanel(origin:p,size:vec2(cardWidth-12,102))
     sk.drawFrame(panel)
     let color=SeatColors[slot mod SeatColors.len]
-    sk.drawRect(p,vec2(cardWidth-10,3),color)
-    sk.text(r.seatName(slot),p+vec2(10,10),color,"Bold",cardWidth-28)
-    sk.text("SCORE  " & $(metric.delivered-metric.killed),p+vec2(10,35),rgbx(247,234,202,255),"Bold")
-    sk.text("Delivered " & $metric.delivered & "   Kills " & $metric.killed,p+vec2(10,59),font="Small")
-    sk.text("Fuel " & (if metric.fuel<0:"unlimited" else: $metric.fuel),p+vec2(10,77),font="Small")
+    let active=selection.kind=="tractor" and selection.key== $slot
+    sk.drawRect(p+vec2(1,4),vec2(3,94),if active:color else:rgbx(81,91,85,255))
+    sk.text(r.seatName(slot),p+vec2(13,8),color,"Bold",cardWidth-35)
+    sk.text($(metric.delivered-metric.killed),p+vec2(13,29),rgbx(248,235,202,255),"H1",65)
+    sk.text("SCORE",p+vec2(14,65),rgbx(160,171,158,255),"Small",60)
+    let statsX=max(80'f32,(cardWidth-12)*0.35)
+    sk.drawSprite("farm-corn",p+vec2(statsX,34),vec2(25))
+    sk.text($metric.delivered,p+vec2(statsX+31,37),rgbx(247,207,104,255),"Bold",38)
+    sk.drawSprite("farm-kill",p+vec2(statsX+79,34),vec2(25))
+    sk.text($metric.killed,p+vec2(statsX+110,37),rgbx(231,158,148,255),"Bold",38)
+    let maximum=max(1,r.metrics[0][slot].fuel)
+    let ratio=if metric.fuel<0:1'f32 else:clamp(metric.fuel.float32/maximum.float32,0'f32,1'f32)
+    let fuelColor=if ratio<=0.2:rgbx(222,104,84,255) elif ratio<=0.45:rgbx(229,178,75,255) else:rgbx(128,188,126,255)
+    sk.drawSprite("farm-fuel",p+vec2(statsX,66),vec2(18))
+    let fuelText=if metric.fuel<0:"UNLIMITED" else: $metric.fuel & " / " & $maximum & "   " & $(round(ratio*100).int) & "%"
+    sk.text(fuelText,p+vec2(statsX+25,66),rgbx(188,200,183,255),"Small",cardWidth-statsX-42)
+    sk.drawBar(p+vec2(13,88),vec2(cardWidth-38,7),ratio,1,fuelColor)
     if window.mousePressed(MouseLeft) and panel.contains(sk.mousePos):
       selection=Selection(kind:"tractor",key: $slot)
       selected=slot

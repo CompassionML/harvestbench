@@ -3,6 +3,7 @@ import std/[json, math, os, strutils, times]
 import chroma, opengl, pixie, silky, vmath, windy
 import polyworld/[actioncam, common, gameuis, inputs, player, shapes, viewers]
 import replay, terrain, animals, effects, hud
+import pixie/fileformats/svg
 import polyworld/[quadterrain, shadows]
 
 var
@@ -20,6 +21,12 @@ createDir(TmpRoot)
 let atlasPath = TmpRoot / "harvestbench.atlas.png"
 let builder = newHudAtlas(2048)
 builder.addDefaultFonts()
+const farmIcons = [("farm-corn",staticRead("icons/corn.svg")),
+                     ("farm-kill",staticRead("icons/kill.svg")),
+                     ("farm-fuel",staticRead("icons/fuel.svg"))]
+for (name, data) in farmIcons:
+  if not builder.addImage(name, newImage(parseSvg(data))):
+    raise newException(ValueError,"Farm icons do not fit in the HUD atlas")
 builder.write(atlasPath)
 let (window, sk) = initGameWindow("HarvestBench PW", atlasPath, ivec2(1440, 900))
 initFarmTerrain(recording.data)
