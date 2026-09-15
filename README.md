@@ -16,8 +16,7 @@ and completed replays. Click tractors, animals, corn, rocks, hay, fences, gates,
 The Paintbot-style header shows each policy's score (deliveries minus kills),
 deliveries, kills, and fuel. Matching colored graphs show their histories with a
 cursor at the selected replay tick. Tractors visibly carry baskets of corn;
-animals walk within their larger tiles, breathe, blink, and wiggle. Tractors are
-roughly four times the animals' length. Dead animals lie in persistent blood puddles.
+animals walk within their larger tiles, breathe, blink, and wiggle. Large tractors carry clearly visible baskets of corn. Dead animals lie in persistent blood puddles.
 Recorded collisions animate animal tumbles
 and tractor damage, and stolen corn flies into the cargo basket. Seeking restores
 the correct cargo, inspector stats, and effects.

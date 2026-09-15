@@ -171,7 +171,7 @@ proc drawFarm() =
       p+=vec3(sin(hit*16)*0.13*decay,abs(sin(hit*11))*0.08*decay,cos(hit*19)*0.06*decay)
     let c=if hit<5 and (hit*5).int mod 2==0:rgbx(255,101,73,255) else:colors[slot mod colors.len]
     template tractorBox(at,size:Vec3,color:ColorRGBX)=
-      box(p+(at-p)*1.6,size*1.6,color)
+      box(p+(at-p)*3.2,size*3.2,color)
     tractorBox(p+vec3(0,0.2,0),vec3(0.68,0.3,0.48),c)
     tractorBox(p+vec3(-0.15,0.5,0),vec3(0.3,0.32,0.36),rgbx(179,211,211,255))
     tractorBox(p+vec3(-0.15,0.82,0),vec3(0.39,0.06,0.44),c)
@@ -186,7 +186,7 @@ proc drawFarm() =
       for dz in [-0.25'f32,0.25]:tractorBox(cargo+vec3(0,0.07,dz),vec3(0.47,0.19,0.04),rgbx(188,141,78,255))
       for dx in [-0.21'f32,0.21]:tractorBox(cargo+vec3(dx,0.07,0),vec3(0.04,0.19,0.52),rgbx(188,141,78,255))
       for dx in [-0.13'f32,0,0.13]:
-        for dz in [-0.16'f32,0,0.16]:cornCob(renderer,p+(cargo+vec3(dx,0.14,dz)-p)*1.6)
+        for dz in [-0.16'f32,0,0.16]:cornCob(renderer,p+(cargo+vec3(dx,0.14,dz)-p)*3.2,scale=2)
       if stolen:renderer.addCircle(p+vec3(0,0.018,0),0.55,rgbx(239,167,39,75))
   for cue in cues:
     let event=cue.event
@@ -247,7 +247,7 @@ proc pickObject(vp:Mat4) =
   for actor in frame["agents"]:
     consider(Selection(kind:"tractor",key: $actor["slot"].getInt),point(actor["pos"]),24)
   for entity in frame["entities"]:
-    consider(Selection(kind:"entity",key:entity["id"].getStr),entityPosition(entity),16)
+    consider(Selection(kind:"entity",key:entity["id"].getStr),entityPosition(entity),24)
   for crop in recording.crops[frameIndex]:
     consider(Selection(kind:"crop",pos:crop["pos"]),point(crop["pos"]),19)
   for tile in recording.data["barn"]:

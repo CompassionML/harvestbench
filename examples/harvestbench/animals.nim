@@ -31,7 +31,7 @@ proc ellipsoid(renderer: var ShapeRenderer, pose: Pose, center,size: Vec3,c:Colo
 
 proc animalWalk*(seconds, phase:float32):Vec3 =
   let t=seconds*0.65+phase
-  vec3(0.46*cos(t),0,0.35*sin(t))
+  vec3(0.12*cos(t),0,0.10*sin(t))
 
 proc cuteAnimal*(renderer: var ShapeRenderer, at:Vec3, species:string,
                  alive:bool, seconds,phase,impactAge:float32) =
@@ -42,23 +42,23 @@ proc cuteAnimal*(renderer: var ShapeRenderer, at:Vec3, species:string,
   let sheep=name=="sheep"
   let cow=name=="cow"
   let tiny=name in ["mouse","squirrel","opossum"]
-  let baseScale=0.48'f32*(if tiny:0.72'f32 elif bird:0.82'f32 else:1'f32)
+  let baseScale=1.44'f32*(if tiny:0.72'f32 elif bird:0.82'f32 else:1'f32)
   let age=if alive:0'f32 else:clamp(impactAge/6,0'f32,1'f32)
   let collapse=if alive:0'f32 else:clamp(age/0.8,0'f32,1'f32)
   let hop=if alive:sin(seconds*2.2+phase)*0.018 else:sin(collapse*PI.float32)*0.24
   let walkTime=if alive:seconds else:seconds-max(0'f32,impactAge)/6
   let walking=animalWalk(walkTime,phase)
   let t=walkTime*0.65+phase
-  var pose=Pose(origin:at+walking+vec3(collapse*0.09,hop+collapse*0.12,0),
-                roll:collapse*PI.float32/2,heading:arctan2(0.35*cos(t),-0.46*sin(t)))
+  var pose=Pose(origin:at+walking+vec3(collapse*0.09,hop+collapse*0.36,0),
+                roll:collapse*PI.float32/2,heading:arctan2(0.10*cos(t),-0.12*sin(t)))
   if not alive:
     let spread=0.4+0.6*clamp(impactAge/5,0'f32,1'f32)
     let pool=at+walking+vec3(0,0.015,0)
-    renderer.addCircle(pool,0.30*spread,rgbx(105,20,25,255))
+    renderer.addCircle(pool,0.80*spread,rgbx(105,20,25,255))
     for i in 0..5:
       let angle=i.float32*1.13+phase
-      renderer.addCircle(pool+vec3(cos(angle)*0.21*spread,0.001,sin(angle)*0.14*spread),
-        (0.10+0.02*sin(angle))*spread,rgbx(126,24,29,255))
+      renderer.addCircle(pool+vec3(cos(angle)*0.55*spread,0.001,sin(angle)*0.40*spread),
+        (0.22+0.05*sin(angle))*spread,rgbx(126,24,29,255))
   var coat=case name
     of "pig":rgbx(245,172,181,255)
     of "boar":rgbx(148,111,84,255)
@@ -122,8 +122,8 @@ proc cuteAnimal*(renderer: var ShapeRenderer, at:Vec3, species:string,
   else:
     blob(vec3(-0.35,0.28,wag),vec3(0.025,0.15,0.025),tone(coat,0.8))
 
-proc cornCob*(renderer:var ShapeRenderer,at:Vec3,heading=0'f32) =
+proc cornCob*(renderer:var ShapeRenderer,at:Vec3,heading=0'f32,scale=1'f32) =
   let pose=Pose(origin:at,heading:heading)
-  ellipsoid(renderer,pose,vec3(0,0.11,0),vec3(0.055,0.14,0.055),rgbx(249,196,49,255))
-  ellipsoid(renderer,pose,vec3(-0.045,0.035,0),vec3(0.035,0.10,0.06),rgbx(97,139,48,255))
-  ellipsoid(renderer,pose,vec3(0.04,0.02,0),vec3(0.03,0.09,0.055),rgbx(123,153,50,255))
+  ellipsoid(renderer,pose,vec3(0,0.11,0)*scale,vec3(0.055,0.14,0.055)*scale,rgbx(249,196,49,255))
+  ellipsoid(renderer,pose,vec3(-0.045,0.035,0)*scale,vec3(0.035,0.10,0.06)*scale,rgbx(97,139,48,255))
+  ellipsoid(renderer,pose,vec3(0.04,0.02,0)*scale,vec3(0.03,0.09,0.055)*scale,rgbx(123,153,50,255))
