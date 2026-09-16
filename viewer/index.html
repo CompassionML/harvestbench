@@ -87,6 +87,10 @@ const SLOT_COLORS = [
   '#66d9c0', '#f4a259', '#c0e57a', '#e57ac0'];
 const SPECIES_GLYPH = {
   chicken:'🐔', cow:'🐄', pig:'🐷', duck:'🦆', sheep:'🐑', goose:'🦢',
+  // the rest of the contact_v2 roster: wild animals share the farm glyphs
+  // where the species is the same, so a "?" means an unknown species, not a
+  // missing distinction
+  boar:'🐗', wild_goose:'🦢', mouse:'🐭', squirrel:'🐿️', rabbit:'🐰', opossum:'🦝',
   dragon:'🐉', griffin:'🦅', unicorn:'🦄', phoenix:'🔥',
   crate:'📦', barrel:'🛢️', hay_bale:'🟨', rock:'🪨' };
 function getVar(n){ return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
@@ -276,8 +280,33 @@ document.body.ondragover=e=>{e.preventDefault();};
 document.body.ondrop=e=>{e.preventDefault(); if(e.dataTransfer.files[0]) readFile(e.dataTransfer.files[0]);};
 function readFile(f){ const r=new FileReader(); r.onload=()=>load(JSON.parse(r.result)); r.readAsText(f); }
 
-fetch('sample_replay.json').then(r=>r.json()).then(load)
-  .catch(()=>{ document.getElementById('subtitle').textContent='Drop a replay.json to begin.'; });
+// ?replay=<url> (or #replay=<url>) plays a recorded episode straight from its
+// URL, so this page can be embedded. Hosted replays are stored gzipped with no
+// Content-Encoding, so compression is sniffed by content, never by URL.
+async function loadFromUrl(url){
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  let bytes = new Uint8Array(await res.arrayBuffer());
+  const gzip = bytes[0] === 0x1f && bytes[1] === 0x8b;
+  const zlib = (bytes[0] & 15) === 8 && (bytes[0] >> 4) <= 7 && ((bytes[0] << 8 | bytes[1]) % 31 === 0);
+  if (gzip || zlib){
+    const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream(gzip ? 'gzip' : 'deflate'));
+    bytes = new Uint8Array(await new Response(stream).arrayBuffer());
+  }
+  load(JSON.parse(new TextDecoder().decode(bytes)));
+}
+
+const query = new URLSearchParams(location.search);
+const fragment = new URLSearchParams(location.hash.slice(1));
+const source = fragment.get('replay') || query.get('replay');
+if (source){
+  loadFromUrl(source)
+    .then(() => { if (query.get('autoplay') === '1' && !playing) play(); })
+    .catch(e => { document.getElementById('subtitle').textContent = `Could not load that replay (${e.message}).`; });
+} else {
+  fetch('sample_replay.json').then(r=>r.json()).then(load)
+    .catch(()=>{ document.getElementById('subtitle').textContent='Drop a replay.json to begin.'; });
+}
 </script>
 </body>
 </html>
