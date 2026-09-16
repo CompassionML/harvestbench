@@ -144,14 +144,20 @@ proc drawFarm() =
       x+=0.32
   for crop in recording.crops[frameIndex]:
     let p=point(crop["pos"])
-    for dx in [-0.26'f32,0,0.26]:
-      for dz in [-0.25'f32,0.08,0.32]:
+    # Corn is what the crew is there for, so a standing crop reads from the
+    # camera: four stalks about a tractor tall, each with a cob and a tassel,
+    # rather than the ground-level sprigs it started as.
+    for dx in [-0.33'f32,0.33]:
+      for dz in [-0.3'f32,0.3]:
         let stem=p+vec3(dx,0.02,dz)
-        let leaf=rgbx(102,133,45,255)
-        box(stem,vec3(0.025,0.48,0.025),leaf)
-        box(stem+vec3(0.025,0.27,0),vec3(0.075,0.17,0.07),rgbx(235,191,58,255))
-        renderer.addTriangle(stem+vec3(0,0.15,0),stem+vec3(0.18,0.3,0.035),stem+vec3(0,0.27,0.03),leaf)
-        renderer.addTriangle(stem+vec3(0,0.23,0),stem+vec3(-0.17,0.4,-0.015),stem+vec3(0,0.34,-0.03),leaf)
+        let leaf=rgbx(96,139,42,255)
+        let pale=rgbx(120,161,55,255)
+        box(stem,vec3(0.07,1.1,0.07),leaf)
+        renderer.addTriangle(stem+vec3(0,0.42,0),stem+vec3(0.44,0.74,0.05),stem+vec3(0,0.7,0.05),pale)
+        renderer.addTriangle(stem+vec3(0,0.58,0),stem+vec3(-0.42,0.92,-0.04),stem+vec3(0,0.86,-0.05),leaf)
+        renderer.addTriangle(stem+vec3(0,0.26,0),stem+vec3(0.3,0.5,-0.3),stem+vec3(0,0.5,-0.06),leaf)
+        cornCob(renderer,stem+vec3(0.1,0.58,0.02),scale=2.1)
+        box(stem+vec3(0,1.1,0),vec3(0.05,0.17,0.05),rgbx(216,186,101,255))
   let frame=recording.frames[frameIndex]
   for entity in frame["entities"]:
     let p=point(entity["pos"])
