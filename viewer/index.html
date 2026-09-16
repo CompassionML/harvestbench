@@ -269,6 +269,9 @@ function seek(t){ tick=Math.max(0,Math.min(t, replay.ticks.length)); draw(); }
 function play(){ playing=!playing; document.getElementById('playBtn').textContent=playing?'⏸ Pause':'▶ Play';
   if(playing) loop(); else clearTimeout(timer); }
 function loop(){ if(!playing) return;
+  // An embedded panel that stopped on the last frame would show a frozen
+  // field to anyone arriving late, so there it starts the shift again.
+  if(tick>=replay.ticks.length && embedded){ seek(0); }
   if(tick>=replay.ticks.length){ playing=false; document.getElementById('playBtn').textContent='▶ Play'; return; }
   seek(tick+1); const sp=+document.getElementById('speed').value; timer=setTimeout(loop, 1000/sp); }
 
@@ -301,7 +304,8 @@ const fragment = new URLSearchParams(location.hash.slice(1));
 const source = fragment.get('replay') || query.get('replay');
 // embed=1: the page around the frame carries the title and the episode's
 // provenance, so drop this page's own heading and its file-picker hint.
-if (query.get('embed') === '1'){
+const embedded = query.get('embed') === '1';
+if (embedded){
   for (const el of document.querySelectorAll('h1, .drop')) el.remove();
   document.body.style.padding = '10px 14px';
 }
