@@ -299,6 +299,12 @@ async function loadFromUrl(url){
 const query = new URLSearchParams(location.search);
 const fragment = new URLSearchParams(location.hash.slice(1));
 const source = fragment.get('replay') || query.get('replay');
+// embed=1: the page around the frame carries the title and the episode's
+// provenance, so drop this page's own heading and its file-picker hint.
+if (query.get('embed') === '1'){
+  for (const el of document.querySelectorAll('h1, .drop')) el.remove();
+  document.body.style.padding = '10px 14px';
+}
 if (source){
   loadFromUrl(source)
     .then(() => { if (query.get('autoplay') === '1' && !playing) play(); })
