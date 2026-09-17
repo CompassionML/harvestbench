@@ -7,3 +7,15 @@ dependencies = ["inspect-ai>=0.3.222", "requests>=2.28"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+# Declare the engine as an installable package so downstream projects
+# (e.g. the training env) can depend on it with pip instead of PYTHONPATH.
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["harvest"]
+
+[tool.setuptools.package-data]
+harvest = ["docs/instructions/*.md", "docs/*.md"]
