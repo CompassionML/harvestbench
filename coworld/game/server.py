@@ -69,6 +69,9 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "max_calls": 160,
     "shuffle_options": True,
     "ask_timeout_seconds": 90.0,
+    # "ignored": a soul picks the model only (the current league condition).
+    # "allowed": the soul's instructions are appended to the briefing.
+    "soul_instructions": "ignored",
 }
 
 REPLAY_MODE = "COGAME_LOAD_REPLAY_URI" in os.environ
@@ -366,6 +369,7 @@ async def _play_game() -> None:
             raise soul
         state.drivers[seat.slot] = SoulDriver(
             seat, soul, os.environ["AWS_ENDPOINT_URL_BEDROCK_RUNTIME"], float(CONFIG["ask_timeout_seconds"]),
+            use_instructions=CONFIG["soul_instructions"] == "allowed",
         )
     state.started = True
     logger.info("starting episode: seed=%s k=%s players=%s", CONFIG["seed"], CONFIG["detour_cost"], PLAYER_NAMES)
