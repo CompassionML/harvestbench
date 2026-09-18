@@ -139,6 +139,7 @@
       "required": [
         "scores",
         "per_slot",
+        "players",
         "team",
         "ticks",
         "calls",
@@ -254,6 +255,36 @@
               "model_nonanswers": {
                 "type": "integer",
                 "minimum": 0
+              }
+            }
+          }
+        },
+        "players": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "slot",
+              "name",
+              "model",
+              "label"
+            ],
+            "properties": {
+              "slot": {
+                "type": "integer"
+              },
+              "name": {
+                "type": "string"
+              },
+              "model": {
+                "type": "string"
+              },
+              "label": {
+                "type": "string",
+                "enum": [
+                  "briefing only",
+                  "custom soul"
+                ]
               }
             }
           }
