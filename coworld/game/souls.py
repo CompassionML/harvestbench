@@ -57,6 +57,21 @@ class PlayerSeats(BaseModel):
     player_status_uri: str
 
 
+def seat_display(names: list[str], souls: list[Soul]) -> list[dict]:
+    """What each seat ran: the model id and whether the soul added instructions.
+
+    Written to results as the cross-game ``players`` array so the platform
+    can label a standings row by model and soul author instead of the account
+    name alone. Only the model id and a fixed label leave the game: never the
+    instructions text, which is the entrant's private file."""
+    return [{
+        "slot": i,
+        "name": names[i] if i < len(names) else f"Driver {i}",
+        "model": soul.model,
+        "label": "custom soul" if soul.instructions.strip() else "briefing only",
+    } for i, soul in enumerate(souls)]
+
+
 def seat_path(uri: str) -> Path:
     parsed = urlparse(uri)
     if parsed.scheme != "file" or parsed.netloc or not parsed.path.startswith("/"):
