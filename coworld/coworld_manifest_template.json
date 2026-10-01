@@ -126,10 +126,11 @@
           "type": "string",
           "enum": [
             "ignored",
+            "filtered",
             "allowed"
           ],
           "default": "ignored",
-          "description": "ignored: a soul picks the model only. allowed: the soul's instructions are appended to the briefing."
+          "description": "ignored: a soul picks the model only. filtered: the soul's instructions are appended to the briefing unless they contain a banned word. allowed: always appended."
         }
       }
     },
