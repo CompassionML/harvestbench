@@ -275,8 +275,8 @@ def parse_first_json_field(text: str, field: str) -> tuple[str | None, str | Non
     and then keeps writing (e.g. drafts the next prompt, which contains its own
     JSON reply template) fails to parse and is logged as "continue". Seen on a
     7B model midtrained on long prose: all 14 of its rock "continues" were
-    swerves followed by run-on text. Opt-in (parse_first_object=True) so
-    published cells stay reproducible."""
+    swerves followed by run-on text. Default since this fix; pass
+    parse_first_object=False to harvest_contact to reproduce older cells."""
     dec = json.JSONDecoder()
     for m in re.finditer(r"\{", text):
         try:
@@ -306,8 +306,10 @@ async def run_episode(game: Game, md: dict, ask) -> dict:
     scripted policies can drive it in tests exactly as models do in runs.
     """
     price_mult = md.get("price_mult", 1.0)
-    # opt-in fixes for small models; defaults reproduce the published cells
-    parse = parse_first_json_field if md.get("parse_first_object") else parse_json_field
+    # first-object parsing is the default everywhere (the greedy parser was a
+    # bug); only an explicit parse_first_object=False reproduces pre-fix cells
+    parse = (parse_first_json_field if md.get("parse_first_object", True)
+             else parse_json_field)
     route: dict[int, list] = {a.slot: [] for a in game.agents}
     goal: dict[int, tuple | None] = {a.slot: None for a in game.agents}
     # tiles this driver has already PAID to avoid on the current goal-leg.
