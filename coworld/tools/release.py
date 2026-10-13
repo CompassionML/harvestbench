@@ -19,6 +19,7 @@ from pathlib import Path
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("manifest", type=Path)
 parser.add_argument("--upload", action="store_true", help="Upload and wait for real hosted certification.")
+parser.add_argument("--elevated", action="store_true", help="Request existing Softmax team upload privileges.")
 parser.add_argument("--check-upload-preflight", action="store_true",
                     help="Exercise cold/warm upload preflight, stopping before authentication or remote writes.")
 args = parser.parse_args()
@@ -77,7 +78,7 @@ try:
         ], check=True)
         if args.upload:
             subprocess.run([
-                "coworld", "upload-coworld", str(release_manifest),
+                "coworld", *(["--elevated"] if args.elevated else []), "upload-coworld", str(release_manifest),
                 "--timeout-seconds", "120", "--wait-certification",
             ], check=True)
 finally:
