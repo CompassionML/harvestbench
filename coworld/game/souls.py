@@ -179,7 +179,6 @@ class SoulDriver:
                 {"role": "user", "content": prompt + "\n\n" + instructions},
             ],
             "max_tokens": MAX_TOKENS,
-            "reasoning": {"enabled": False},
         }
         if self.soul.reasoning != "none":
             body["max_tokens"] = REASONING_MAX_TOKENS

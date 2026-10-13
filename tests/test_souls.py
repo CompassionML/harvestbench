@@ -84,7 +84,7 @@ def test_seat_artifacts_cannot_fetch_remote_data(uri):
 def test_reasoning_is_off_unless_the_soul_asks(seat):
     default = SoulDriver(seat, load_soul(seat), "http://provider", 60).request_body("p", "i")
     assert default["max_tokens"] == 1024
-    assert default["reasoning"] == {"enabled": False}
+    assert "reasoning" not in default
     content = {**load_soul(seat).model_dump(), "reasoning": "medium"}
     seat_path(seat.file_uri).write_text(json.dumps(content))
     body = SoulDriver(seat, load_soul(seat), "http://provider", 60).request_body("p", "i")
