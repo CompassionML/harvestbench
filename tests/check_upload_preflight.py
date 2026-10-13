@@ -15,7 +15,7 @@ from typer.testing import CliRunner
 
 import coworld.upload as upload
 from coworld.cli import app
-from coworld.runner.bedrock_sidecar_wiring import RESERVED_SIDECAR_APP_ENV
+from coworld.runner.llm_sidecar_wiring import RESERVED_SIDECAR_APP_ENV
 
 
 class UploadBoundaryReached(Exception):
@@ -24,7 +24,7 @@ class UploadBoundaryReached(Exception):
 
 manifest = Path(sys.argv[1]).resolve()
 before = hashlib.sha256(manifest.read_bytes()).hexdigest()
-assert "AWS_ENDPOINT_URL_BEDROCK_RUNTIME" in RESERVED_SIDECAR_APP_ENV
+assert "COWORLD_LLM_ENDPOINT" in RESERVED_SIDECAR_APP_ENV
 runner = CliRunner()
 with tempfile.TemporaryDirectory(prefix="harvestbench-preflight-cache-") as cache:
     with (

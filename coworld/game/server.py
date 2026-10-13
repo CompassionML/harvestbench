@@ -368,7 +368,7 @@ async def _play_game() -> None:
         if isinstance(soul, BaseException):
             raise soul
         state.drivers[seat.slot] = SoulDriver(
-            seat, soul, os.environ["AWS_ENDPOINT_URL_BEDROCK_RUNTIME"], float(CONFIG["ask_timeout_seconds"]),
+            seat, soul, os.environ["COWORLD_LLM_ENDPOINT"], float(CONFIG["ask_timeout_seconds"]),
             use_instructions=CONFIG["soul_instructions"] == "allowed",
         )
     state.started = True

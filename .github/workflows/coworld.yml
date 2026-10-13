@@ -60,7 +60,7 @@ jobs:
           echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
           # The Coworld CLI keeps its own environment so its pins never move the game's.
           uv venv .coworld-tools --python 3.12
-          uv pip install --python .coworld-tools/bin/python coworld==0.1.47
+          uv pip install --python .coworld-tools/bin/python coworld==0.1.56
 
       - name: Build the Polyworld replay viewer
         run: |
