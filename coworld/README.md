@@ -36,20 +36,14 @@ Save this as `soul.json`:
 }
 ```
 
-`model` must name a model available through the platform's native OpenAI chat
-endpoint (`COWORLD_LLM_ENDPOINT/v1/chat/completions`). Availability depends on hosted provider configuration; a syntactically
-valid model ID does not guarantee access. Leave `instructions` empty: league
-games do not send it. Only the `open-prompt` variant, which the league does not
-schedule, appends it to the briefing.
+`model` must be available through the hosted chat endpoint
+(`COWORLD_LLM_ENDPOINT/v1/chat/completions`). Existing souls using Bedrock IDs
+for Haiku 4.5 or Opus 4.6 keep the same models; other IDs pass through unchanged.
+Leave `instructions` empty: only the unscheduled `open-prompt` variant uses it.
 
-`reasoning` is optional: `"none"` (the default), `"low"`, `"medium"` or `"high"`.
-As in the original transport, `none` omits the reasoning override; it does not
-disable a model's mandatory or default reasoning. Other values send
-`reasoning.effort`. The private seat log records token usage per call.
-Actual support depends on the selected provider.
-Existing immutable souls using the published Bedrock Haiku 4.5 and Opus 4.6 IDs
-retain those model choices through explicit spelling translations. Other model
-IDs pass through unchanged; unavailable models remain visible provider errors.
+`reasoning` accepts `"none"` (the default), `"low"`, `"medium"` or `"high"`.
+`none` leaves the model's reasoning settings unchanged. Other values request
+`reasoning.effort`; support depends on the provider. Private logs record token usage.
 See the [file schema](souls/schema.json) and [player contract](game/docs/player_protocol.md).
 
 ```bash
@@ -184,7 +178,7 @@ Offline success alone does not establish hosted model access or model quality.
 CI additionally runs `release.py --check-upload-preflight`. This exercises the
 actual upload CLI with an empty certification cache, then repeats with the
 resulting cache. Both attempts stop immediately before authentication and remote
-writes. This check requires `coworld==0.1.47` in the same Python environment;
+writes. This check requires `coworld==0.1.56` in the same Python environment;
 the workflow installs that environment automatically.
 
 ### Release through GitHub

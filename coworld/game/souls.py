@@ -151,9 +151,8 @@ class SoulDriver:
         raw = message.content or ""
         # Private seat log only: token usage shows whether the provider actually
         # applied a requested reasoning effort, and any reasoning text it returned.
-        reasoning = message.reasoning
         self.record({"event": "completion", "text": raw, "usage": completion.usage,
-                     "reasoning": reasoning or None})
+                     "reasoning": message.reasoning or None})
         if not raw.strip():
             return TurnResult(status="empty")
         match = re.search(r"\{.*\}", raw, re.DOTALL)
@@ -166,8 +165,7 @@ class SoulDriver:
         return TurnResult(status="answered", reply=answer.model_dump_json(exclude_defaults=True))
 
     def request_body(self, prompt: str, instructions: str) -> dict:
-        # These IDs occur in already-uploaded, immutable soul files. Translate
-        # their spelling without changing the selected model or the file schema.
+        # Keep existing soul files on the same models when translating Bedrock IDs.
         model = {
             "us.anthropic.claude-haiku-4-5-20251001-v1:0": "anthropic/claude-haiku-4.5",
             "us.anthropic.claude-opus-4-6-v1": "anthropic/claude-opus-4.6",
