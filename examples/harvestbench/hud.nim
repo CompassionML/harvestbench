@@ -4,7 +4,7 @@
 ## and the inspector and animal feed float over it.
 import std/[json, strutils, math]
 from std/unicode import runeLen, runeSubStr
-import chroma, silky, vmath, windy
+import chroma, pixie, silky, vmath, windy
 import polyworld/[chrome, gameuis, inputs]
 import replay, effects
 
