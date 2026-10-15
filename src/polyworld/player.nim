@@ -31,6 +31,18 @@ const
   GlyphActive = rgbx(235, 216, 154, 255)
   GlyphDim = rgbx(112, 121, 138, 255)
 
+var transportScale* = 1.0'f32
+  ## Shrinks the shared ribbon so its controls fit a narrow window, such as
+  ## the league page embed. 1 is the full-size layout.
+
+proc fitTransportScale*(width: float32): float32 =
+  ## Returns the ribbon scale whose controls fit the given window width.
+  clamp(width / TransportMinWidth, 0.55'f32, 1.0'f32)
+
+proc ribbonHeight*(): float32 =
+  ## Returns the transport ribbon height at the current scale.
+  TransportHeight * transportScale
+
 type
   TransportPanels* = object
     controls*: array[5, GameUiPanel]
@@ -219,31 +231,37 @@ proc shouldTick*(
 
 proc transportPanels*(panel: GameUiPanel): TransportPanels =
   ## Reserves fixed controls at both ends, then fills the timeline between.
-  var trailing = panel.stack(RightToLeft, vec2(0, IconY))
-  let tick = trailing.takeColumn(TickLabelW, 16)
-  result.camera = trailing.take(vec2(IconSize), GroupGap)
+  ## Every control shrinks with transportScale so the bar fits its window.
+  let
+    s = transportScale
+    icon = IconSize * s
+    gapS = IconGap * s
+    groupS = GroupGap * s
+  var trailing = panel.stack(RightToLeft, vec2(0, IconY * s))
+  let tick = trailing.takeColumn(TickLabelW * s, 16 * s)
+  result.camera = trailing.take(vec2(icon), groupS)
   var leading = trailing.takeRest().stack(LeftToRight)
-  leading.gap(12)
+  leading.gap(12 * s)
   for control in result.controls.mitems:
-    control = leading.take(vec2(IconSize), IconGap)
-  leading.gap(GroupGap - IconGap)
-  result.loop = leading.take(vec2(IconSize), IconGap)
-  leading.gap(GroupGap - IconGap)
+    control = leading.take(vec2(icon), gapS)
+  leading.gap(groupS - gapS)
+  result.loop = leading.take(vec2(icon), gapS)
+  leading.gap(groupS - gapS)
   for control in result.speeds.mitems:
-    control = leading.take(vec2(IconSize), IconGap)
-  leading.gap(GroupGap - IconGap)
-  let clusterH = ScrubH + RecordedGap + RecordedH
+    control = leading.take(vec2(icon), gapS)
+  leading.gap(groupS - gapS)
+  let clusterH = (ScrubH + RecordedGap + RecordedH) * s
   var timeline = leading.takeRest().stack(TopToBottom)
-  timeline.gap((IconSize - clusterH) * 0.5'f)
-  result.scrub = timeline.takeRow(ScrubH, RecordedGap)
-  result.recorded = timeline.takeRow(RecordedH)
+  timeline.gap((icon - clusterH) * 0.5'f)
+  result.scrub = timeline.takeRow(ScrubH * s, RecordedGap * s)
+  result.recorded = timeline.takeRow(RecordedH * s)
   result.scrubHit = GameUiPanel(
     origin: result.scrub.origin - vec2(0, 8),
     size: result.scrub.size + vec2(0, 24)
   )
   var label = tick.stack(TopToBottom)
-  label.gap((IconSize - clusterH) * 0.5'f)
-  result.tick = label.take(vec2(TickLabelW - 12, clusterH))
+  label.gap((icon - clusterH) * 0.5'f)
+  result.tick = label.take(vec2(TickLabelW * s - 12, clusterH))
 
 proc drawGlyph(
     sk: Silky,
@@ -256,8 +274,8 @@ proc drawGlyph(
     return
   let
     uv = sk.atlas.entries[name]
-    size = vec2(IconSize - IconPad * 2)
-    pos = panel.origin + vec2(IconPad)
+    size = vec2((IconSize - IconPad * 2) * transportScale)
+    pos = panel.origin + vec2(IconPad * transportScale)
   sk.drawQuad(
     pos,
     size,
@@ -367,7 +385,7 @@ proc drawTransport*(
   hudScratch.add " / "
   hudScratch.addHudInt(player.timelineEnd.int)
   discard sk.drawText(
-    "Hud",
+    if transportScale < 0.8: "Small" else: "Hud",
     hudScratch,
     slots.tick.origin,
     rgbx(190, 198, 214, 255),

@@ -1,4 +1,7 @@
 ## Paintbot-style match header, object inspector, and per-seat history plots.
+## Two layouts share the same data: the full one for a window of its own and
+## a compact one for the league page embed, where the field keeps the width
+## and the inspector and animal feed float over it.
 import std/[json, strutils, math]
 from std/unicode import runeLen, runeSubStr
 import chroma, silky, vmath, windy
@@ -8,10 +11,26 @@ import replay, effects
 const SeatColors* = [rgbx(89,179,223,255),rgbx(243,157,78,255),rgbx(201,131,216,255),rgbx(87,196,155,255)]
 const HeaderHeight* = 120'f32
 const SidebarWidth* = 288'f32
+const CompactHeaderHeight* = 58'f32
 
 type Selection* = object
   kind*, key*:string
   pos*:JsonNode
+
+type HudLayout* = object
+  ## Where the chrome sits this frame. `sidebar` is 0 in the compact layout.
+  compact*:bool
+  headerH*, sidebarW*, ribbonH*:float32
+
+proc hudLayout*(window:Window,ribbon:float32):HudLayout =
+  ## Picks the layout for the drawable size. The league page embeds the viewer
+  ## at roughly 750 by 500, far below the 1440 by 900 the full layout wants.
+  let w=window.size.x.float32
+  let h=window.size.y.float32
+  result.compact = w<1100 or h<680
+  result.headerH = if result.compact:CompactHeaderHeight else:HeaderHeight
+  result.sidebarW = if result.compact:0'f32 else:SidebarWidth
+  result.ribbonH = ribbon
 
 proc seatName*(r:Replay,slot:int):string =
   if r.data.hasKey("players") and slot<r.data["players"].len:
@@ -21,7 +40,15 @@ proc seatName*(r:Replay,slot:int):string =
 proc text(sk:Silky,value:string,p:Vec2,color=rgbx(227,228,216,255),font="Hud",width=260'f32) =
   discard sk.drawText(font,value,p,color,maxWidth=width)
 
-proc header*(sk:Silky,window:Window,r:Replay,index:int,selection:var Selection,selected:var int) =
+proc fuelColor(ratio:float32):ColorRGBX =
+  if ratio<=0.2:rgbx(222,104,84,255) elif ratio<=0.45:rgbx(229,178,75,255) else:rgbx(128,188,126,255)
+
+proc fuelRatio(r:Replay,index,slot:int):float32 =
+  let metric=r.metrics[index][slot]
+  let maximum=max(1,r.metrics[0][slot].fuel)
+  if metric.fuel<0:1'f32 else:clamp(metric.fuel.float32/maximum.float32,0'f32,1'f32)
+
+proc fullHeader(sk:Silky,window:Window,r:Replay,index:int,selection:var Selection,selected:var int) =
   sk.drawRibbon(GameUiPanel(origin:vec2(0),size:vec2(window.size.x.float32,HeaderHeight)))
   sk.text("HARVESTBENCH",vec2(22,13),rgbx(244,230,190,255),"H1",300)
   sk.text("POLYWORLD  /  HARVEST RUSH",vec2(24,55),rgbx(174,193,161,255),"Small")
@@ -47,15 +74,57 @@ proc header*(sk:Silky,window:Window,r:Replay,index:int,selection:var Selection,s
     sk.drawSprite("farm-kill",p+vec2(statsX+79,34),vec2(25))
     sk.text($metric.killed,p+vec2(statsX+110,37),rgbx(231,158,148,255),"Bold",38)
     let maximum=max(1,r.metrics[0][slot].fuel)
-    let ratio=if metric.fuel<0:1'f32 else:clamp(metric.fuel.float32/maximum.float32,0'f32,1'f32)
-    let fuelColor=if ratio<=0.2:rgbx(222,104,84,255) elif ratio<=0.45:rgbx(229,178,75,255) else:rgbx(128,188,126,255)
+    let ratio=r.fuelRatio(index,slot)
     sk.drawSprite("farm-fuel",p+vec2(statsX,66),vec2(18))
     let fuelText=if metric.fuel<0:"UNLIMITED" else: $metric.fuel & " / " & $maximum & "   " & $(round(ratio*100).int) & "%"
     sk.text(fuelText,p+vec2(statsX+25,66),rgbx(188,200,183,255),"Small",cardWidth-statsX-42)
-    sk.drawBar(p+vec2(13,88),vec2(cardWidth-38,7),ratio,1,fuelColor)
+    sk.drawBar(p+vec2(13,88),vec2(cardWidth-38,7),ratio,1,fuelColor(ratio))
     if window.mousePressed(MouseLeft) and panel.contains(sk.mousePos):
       selection=Selection(kind:"tractor",key: $slot)
       selected=slot
+
+proc compactHeader(sk:Silky,window:Window,r:Replay,index:int,selection:var Selection,selected:var int) =
+  ## One 58 px strip: the title and crew totals on the left, one slim card per
+  ## seat with its name, score, corn, kills and a fuel line.
+  let w=window.size.x.float32
+  sk.drawRibbon(GameUiPanel(origin:vec2(0),size:vec2(w,CompactHeaderHeight)))
+  sk.text("HARVESTBENCH",vec2(14,8),rgbx(244,230,190,255),"Bold",150)
+  sk.drawSprite("farm-corn",vec2(14,33),vec2(16))
+  sk.text($r.delivered[index],vec2(34,34),rgbx(246,207,103,255),"Small",30)
+  sk.drawSprite("farm-kill",vec2(66,33),vec2(16))
+  sk.text($r.killed[index],vec2(86,34),rgbx(231,158,148,255),"Small",30)
+  let seats=max(1,r.metrics[index].len)
+  let left=if w<560:120'f32 else:156'f32
+  let cardWidth=max(118'f32,(w-left-8)/seats.float32)
+  for slot,metric in r.metrics[index]:
+    let p=vec2(left+slot.float32*cardWidth,6)
+    let inner=cardWidth-8
+    if p.x+inner>w+1:break
+    let panel=GameUiPanel(origin:p,size:vec2(inner,46))
+    sk.drawFrame(panel)
+    let color=SeatColors[slot mod SeatColors.len]
+    let active=selection.kind=="tractor" and selection.key== $slot
+    sk.drawRect(p+vec2(1,3),vec2(3,40),if active:color else:rgbx(81,91,85,255))
+    sk.text(r.seatName(slot),p+vec2(11,5),color,"Hud",inner-56)
+    discard sk.drawText("Bold",$(metric.delivered-metric.killed),p+vec2(inner-46,3),rgbx(248,235,202,255),
+      maxWidth=38,maxHeight=24,hAlign=RightAlign)
+    sk.drawSprite("farm-corn",p+vec2(11,25),vec2(14))
+    sk.text($metric.delivered,p+vec2(28,26),rgbx(247,207,104,255),"Small",26)
+    sk.drawSprite("farm-kill",p+vec2(56,25),vec2(14))
+    sk.text($metric.killed,p+vec2(73,26),rgbx(231,158,148,255),"Small",26)
+    let ratio=r.fuelRatio(index,slot)
+    if inner>=170:
+      let fuelText=if metric.fuel<0:"fuel unlimited" else:"fuel " & $metric.fuel
+      sk.text(fuelText,p+vec2(100,26),rgbx(188,200,183,255),"Small",inner-104)
+    sk.drawRect(p+vec2(11,41),vec2(inner-22,3),rgbx(35,40,50,255))
+    sk.drawRect(p+vec2(11,41),vec2(max(1'f32,(inner-22)*ratio),3),fuelColor(ratio))
+    if window.mousePressed(MouseLeft) and panel.contains(sk.mousePos):
+      selection=Selection(kind:"tractor",key: $slot)
+      selected=slot
+
+proc header*(sk:Silky,window:Window,r:Replay,index:int,selection:var Selection,selected:var int,layout:HudLayout) =
+  if layout.compact:sk.compactHeader(window,r,index,selection,selected)
+  else:sk.fullHeader(window,r,index,selection,selected)
 
 proc inspectorLines*(r:Replay,index:int,s:Selection):seq[string] =
   let frame=r.frames[index]
@@ -142,17 +211,20 @@ proc animalPanel(sk:Silky,p:GameUiPanel,r:Replay,index:int) =
   const Row=17'f32
   var y=p.origin.y+28
   let bottom=p.origin.y+p.size.y-6
+  let sayRunes=max(20,int((p.size.x-46)/6.2))
   for note in r.animalNotes(index):
     if y+Row>bottom:break
     let verdictColor=if note.verdict=="ran over":rgbx(231,120,108,255) else:rgbx(140,200,130,255)
     sk.text("T" & $(note.slot+1),vec2(p.origin.x+10,y),SeatColors[note.slot mod SeatColors.len],"Small",28)
-    sk.text(clip(note.verdict & " " & note.label,40),vec2(p.origin.x+36,y),verdictColor,"Small",p.size.x-46)
+    sk.text(clip(note.verdict & " " & note.label,sayRunes),vec2(p.origin.x+36,y),verdictColor,"Small",p.size.x-46)
     y+=Row
     if note.say.len>0 and y+Row<=bottom:
-      sk.text("\"" & clip(note.say,42) & "\"",vec2(p.origin.x+36,y),rgbx(232,228,206,255),"Small",p.size.x-46)
+      sk.text("\"" & clip(note.say,sayRunes+2) & "\"",vec2(p.origin.x+36,y),rgbx(232,228,206,255),"Small",p.size.x-46)
       y+=Row
 
-proc sidebar*(sk:Silky,window:Window,r:Replay,index:int,s:Selection) =
+proc sidebar*(sk:Silky,window:Window,r:Replay,index:int,s:Selection,layout:HudLayout) =
+  ## The full layout's right column: inspector, three history graphs when
+  ## there is room for them, and the animal feed with whatever is left.
   let x=window.size.x.float32-SidebarWidth-12
   let top=HeaderHeight+12
   let panel=GameUiPanel(origin:vec2(x,top),size:vec2(SidebarWidth,226))
@@ -161,9 +233,39 @@ proc sidebar*(sk:Silky,window:Window,r:Replay,index:int,s:Selection) =
   for i,line in lines:
     sk.text(line,vec2(x+14,top+12+i.float32*24),
       if i==0:rgbx(247,229,181,255) else:rgbx(218,224,210,255),if i==0:"Bold" else:"Hud")
-  let available=window.size.y.float32-80-(top+238)-16
-  let graphHeight=min(122'f32,available*0.6'f32/3)
-  for i,title in ["DELIVERIES","ANIMALS KILLED","FUEL REMAINING"]:
-    sk.historyGraph(GameUiPanel(origin:vec2(x,top+238+i.float32*graphHeight),size:vec2(SidebarWidth,graphHeight-7)),title,r,index,i)
+  let available=window.size.y.float32-layout.ribbonH-(top+238)-16
+  var graphHeight=min(122'f32,available*0.6'f32/3)
+  # Below this the lines and labels collide, so the feed takes the room instead.
+  if graphHeight<68:graphHeight=0
+  if graphHeight>0:
+    for i,title in ["DELIVERIES","ANIMALS KILLED","FUEL REMAINING"]:
+      sk.historyGraph(GameUiPanel(origin:vec2(x,top+238+i.float32*graphHeight),size:vec2(SidebarWidth,graphHeight-7)),title,r,index,i)
   let notesTop=top+238+3'f32*graphHeight
   sk.animalPanel(GameUiPanel(origin:vec2(x,notesTop),size:vec2(SidebarWidth,available-3'f32*graphHeight-7)),r,index)
+
+proc overlays*(sk:Silky,window:Window,r:Replay,index:int,s:Selection,layout:HudLayout) =
+  ## The compact layout's floating cards: a small inspector under the header
+  ## for whatever is selected, and the latest animal decisions above the
+  ## transport. Both sit on the left so the field's centre stays clear.
+  let w=window.size.x.float32
+  let h=window.size.y.float32
+  if s.kind.len>0:
+    let lines=r.inspectorLines(index,s)
+    let width=min(236'f32,w*0.4)
+    let card=GameUiPanel(origin:vec2(10,layout.headerH+8),size:vec2(width,14+lines.len.float32*16+4))
+    sk.drawFrame(card)
+    for i,line in lines:
+      sk.text(line,card.origin+vec2(10,8+i.float32*16),
+        if i==0:rgbx(247,229,181,255) else:rgbx(218,224,210,255),if i==0:"Hud" else:"Small",width-20)
+  let notes=r.animalNotes(index)
+  if notes.len>0:
+    var rows=0
+    for note in notes:
+      rows+=1
+      if note.say.len>0:rows+=1
+      if rows>=5:break
+    let height=28'f32+min(5,rows).float32*17+6
+    let width=clamp(w*0.42,220'f32,320'f32)
+    let feed=GameUiPanel(origin:vec2(10,h-layout.ribbonH-8-height),size:vec2(width,height))
+    if feed.origin.y>layout.headerH+8+140:
+      sk.animalPanel(feed,r,index)

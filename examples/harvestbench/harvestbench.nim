@@ -46,6 +46,8 @@ var lastFrame = epochTime()
 var screenshotFrame = 0
 var selected = 0
 var selection=Selection(kind:"tractor",key:"0")
+var layout:HudLayout
+var firstFrame = true
 
 when defined(emscripten):
   {.emit: """
@@ -244,8 +246,8 @@ proc selectedPosition():Vec3 =
 proc pickObject(vp:Mat4) =
   if not window.mousePressed(MouseLeft):return
   let mouse=window.mousePos.vec2
-  if mouse.y<HeaderHeight or mouse.y>window.size.y.float32-TransportHeight or
-     mouse.x>window.size.x.float32-SidebarWidth-24:return
+  if mouse.y<layout.headerH or mouse.y>window.size.y.float32-layout.ribbonH or
+     mouse.x>window.size.x.float32-layout.sidebarW-(if layout.compact:0'f32 else:24'f32):return
   var best=1'f32
   var found=Selection()
   proc consider(s:Selection,p:Vec3,radius:float32) =
@@ -288,6 +290,12 @@ proc frame() =
         transport.sync(frameIndex.int32,(recording.frames.len-1).int32,false)
   let now=epochTime()
   let dt=frameDelta(lastFrame)
+  transportScale=fitTransportScale(window.size.x.float32)
+  layout=hudLayout(window,ribbonHeight())
+  if firstFrame:
+    firstFrame=false
+    # The embed starts with a clear field; a click on a tractor opens its card.
+    if layout.compact:selection=Selection()
   if window.buttonDown[MouseRight]:
     yaw+=window.mouseDelta.x.float32*0.005
     pitch=clamp(pitch+window.mouseDelta.y.float32*0.005,0.3'f32,1.5'f32)
@@ -311,7 +319,7 @@ proc frame() =
   var vp=perspective(45'f32,window.size.x.float32/max(1'f32,window.size.y.float32),0.1'f32,400'f32)*lookAt(eye,target,vec3(0,1,0))
   # Shift projected scene left to reserve the inspector column.
   var framing=mat4()
-  framing[3,0] = -SidebarWidth/window.size.x.float32*0.7
+  framing[3,0] = -layout.sidebarW/window.size.x.float32*0.7
   vp=framing*vp
   pickObject(vp)
   glViewport(0,0,window.size.x,window.size.y)
@@ -334,8 +342,9 @@ proc frame() =
   glDisable(GL_CULL_FACE)
   glDisable(GL_BLEND)
   sk.beginUi(window,window.size)
-  sk.header(window,recording,frameIndex,selection,selected)
-  sk.sidebar(window,recording,frameIndex,selection)
+  sk.header(window,recording,frameIndex,selection,selected,layout)
+  if layout.compact:sk.overlays(window,recording,frameIndex,selection,layout)
+  else:sk.sidebar(window,recording,frameIndex,selection,layout)
   for cue in cues:
     let label=cueLabel(cue.event)
     if label.len==0 or cue.age>9:continue
@@ -345,8 +354,9 @@ proc frame() =
       let screen=vec2((clip.x/clip.w+1)*0.5*window.size.x.float32,(1-clip.y/clip.w)*0.5*window.size.y.float32)
       let color=if cue.event["type"].getStr=="pickup":rgbx(255,212,105,255) else:rgbx(255,150,115,255)
       discard sk.drawText("Bold",label,screen-vec2(80,10),color,maxWidth=220)
-  discard sk.drawText("Small","Space: play / pause   Arrows: step   Right-drag: orbit   Wheel: zoom",vec2(26,window.size.y.float32-107),rgbx(209,218,200,255))
-  transport.drawTransport(sk,window,GameUiPanel(origin:vec2(0,window.size.y.float32-TransportHeight),size:vec2(window.size.x.float32,TransportHeight)),cameraControl,followSelection)
+  if not layout.compact:
+    discard sk.drawText("Small","Space: play / pause   Arrows: step   Right-drag: orbit   Wheel: zoom",vec2(26,window.size.y.float32-layout.ribbonH-27),rgbx(209,218,200,255))
+  transport.drawTransport(sk,window,GameUiPanel(origin:vec2(0,window.size.y.float32-layout.ribbonH),size:vec2(window.size.x.float32,layout.ribbonH)),cameraControl,followSelection)
   sk.endUi()
   captureScreenshot(window,screenshotFrame,10,"tmp/harvestbench.png")
   window.swapBuffers()
