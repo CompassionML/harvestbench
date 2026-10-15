@@ -1,5 +1,5 @@
 ## Stateless event animation indexing: seeks must never accumulate effects.
-import std/[json, math]
+import std/[json, math, strutils]
 import replay
 
 type Cue* = object
