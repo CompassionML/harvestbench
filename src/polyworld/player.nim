@@ -237,17 +237,20 @@ proc transportPanels*(panel: GameUiPanel): TransportPanels =
     icon = IconSize * s
     gapS = IconGap * s
     groupS = GroupGap * s
+  let narrow = transportScale < 0.8
   var trailing = panel.stack(RightToLeft, vec2(0, IconY * s))
   let tick = trailing.takeColumn(TickLabelW * s, 16 * s)
-  result.camera = trailing.take(vec2(icon), groupS)
+  # A narrow bar keeps the loop and the two end speeds and drops the camera
+  # toggle; the room goes to the timeline, which is what a spectator drags.
+  if narrow:
+    result.camera = GameUiPanel()
+  else:
+    result.camera = trailing.take(vec2(icon), groupS)
   var leading = trailing.takeRest().stack(LeftToRight)
   leading.gap(12 * s)
   for control in result.controls.mitems:
     control = leading.take(vec2(icon), gapS)
   leading.gap(groupS - gapS)
-  # A narrow bar keeps the loop and the two end speeds; the middle speeds
-  # and their room go to the timeline, which is what a spectator drags.
-  let narrow = transportScale < 0.8
   result.loop = leading.take(vec2(icon), gapS)
   leading.gap(groupS - gapS)
   for i, control in result.speeds.mpairs:
@@ -384,9 +387,10 @@ proc drawTransport*(
       )
       player.seekTo(int32(ratio * player.timelineEnd.float32))
   let actionBtn = slots.camera
-  sk.drawIcon(actionBtn, "action_cam", actionCam.enabled)
-  if window.clicked(sk, actionBtn):
-    actionCam.toggle(followSelection)
+  if actionBtn.size.x > 0:
+    sk.drawIcon(actionBtn, "action_cam", actionCam.enabled)
+    if window.clicked(sk, actionBtn):
+      actionCam.toggle(followSelection)
   hudScratch.setLen(0)
   hudScratch.add "Tick "
   hudScratch.addHudInt(player.tick.int)
