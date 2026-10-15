@@ -37,7 +37,7 @@ var transportScale* = 1.0'f32
 
 proc fitTransportScale*(width: float32): float32 =
   ## Returns the ribbon scale whose controls fit the given window width.
-  clamp(width / TransportMinWidth, 0.55'f32, 1.0'f32)
+  clamp(width / TransportMinWidth, 0.5'f32, 1.0'f32)
 
 proc ribbonHeight*(): float32 =
   ## Returns the transport ribbon height at the current scale.
