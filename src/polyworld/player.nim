@@ -245,10 +245,16 @@ proc transportPanels*(panel: GameUiPanel): TransportPanels =
   for control in result.controls.mitems:
     control = leading.take(vec2(icon), gapS)
   leading.gap(groupS - gapS)
+  # A narrow bar keeps the loop and the two end speeds; the middle speeds
+  # and their room go to the timeline, which is what a spectator drags.
+  let narrow = transportScale < 0.8
   result.loop = leading.take(vec2(icon), gapS)
   leading.gap(groupS - gapS)
-  for control in result.speeds.mitems:
-    control = leading.take(vec2(icon), gapS)
+  for i, control in result.speeds.mpairs:
+    if narrow and i in {1, 2}:
+      control = GameUiPanel()
+    else:
+      control = leading.take(vec2(icon), gapS)
   leading.gap(groupS - gapS)
   let clusterH = (ScrubH + RecordedGap + RecordedH) * s
   var timeline = leading.takeRest().stack(TopToBottom)
@@ -345,6 +351,8 @@ proc drawTransport*(
   elif window.clicked(sk, loopBtn):
     player.repeating = not player.repeating
   for i, button in speeds:
+    if button.size.x <= 0:
+      continue
     sk.drawIcon(button, SpeedIcons[i], player.speedIndex == i)
     if window.clicked(sk, button):
       player.setSpeed(i)

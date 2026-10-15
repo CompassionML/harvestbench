@@ -89,13 +89,14 @@ proc compactHeader(sk:Silky,window:Window,ui:Vec2,r:Replay,index:int,selection:v
   ## seat with its name, score, corn, kills and a fuel line.
   let w=ui.x
   sk.drawRibbon(GameUiPanel(origin:vec2(0),size:vec2(w,CompactHeaderHeight)))
-  sk.text("HARVESTBENCH",vec2(14,8),rgbx(244,230,190,255),"Bold",150)
+  let narrow=w<640
+  sk.text("HARVESTBENCH",vec2(14,if narrow:9'f32 else:8'f32),rgbx(244,230,190,255),if narrow:"Hud" else:"Bold",170)
   sk.drawSprite("farm-corn",vec2(14,33),vec2(16))
   sk.text($r.delivered[index],vec2(34,34),rgbx(246,207,103,255),"Small",30)
   sk.drawSprite("farm-kill",vec2(66,33),vec2(16))
   sk.text($r.killed[index],vec2(86,34),rgbx(231,158,148,255),"Small",30)
   let seats=max(1,r.metrics[index].len)
-  let left=if w<560:120'f32 else:156'f32
+  let left=if narrow:140'f32 else:178'f32
   let cardWidth=max(118'f32,(w-left-8)/seats.float32)
   for slot,metric in r.metrics[index]:
     let p=vec2(left+slot.float32*cardWidth,6)
@@ -266,7 +267,7 @@ proc overlays*(sk:Silky,ui:Vec2,r:Replay,index:int,s:Selection,layout:HudLayout)
       if note.say.len>0:rows+=1
       if rows>=5:break
     let height=28'f32+min(5,rows).float32*17+6
-    let width=clamp(w*0.42,220'f32,320'f32)
+    let width=clamp(w*0.5,240'f32,380'f32)
     let feed=GameUiPanel(origin:vec2(10,h-layout.ribbonH-8-height),size:vec2(width,height))
     if feed.origin.y>layout.headerH+8+140:
       sk.animalPanel(feed,r,index)
