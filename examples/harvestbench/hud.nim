@@ -22,11 +22,12 @@ type HudLayout* = object
   compact*:bool
   headerH*, sidebarW*, ribbonH*:float32
 
-proc hudLayout*(window:Window,ribbon:float32):HudLayout =
-  ## Picks the layout for the drawable size. The league page embeds the viewer
-  ## at roughly 750 by 500, far below the 1440 by 900 the full layout wants.
-  let w=window.size.x.float32
-  let h=window.size.y.float32
+proc hudLayout*(ui:Vec2,ribbon:float32):HudLayout =
+  ## Picks the layout for the window size in CSS pixels (device pixels over
+  ## the content scale). The league page embeds the viewer at roughly 750 by
+  ## 500, far below the 1440 by 900 the full layout wants.
+  let w=ui.x
+  let h=ui.y
   result.compact = w<1100 or h<680
   result.headerH = if result.compact:CompactHeaderHeight else:HeaderHeight
   result.sidebarW = if result.compact:0'f32 else:SidebarWidth
@@ -48,8 +49,8 @@ proc fuelRatio(r:Replay,index,slot:int):float32 =
   let maximum=max(1,r.metrics[0][slot].fuel)
   if metric.fuel<0:1'f32 else:clamp(metric.fuel.float32/maximum.float32,0'f32,1'f32)
 
-proc fullHeader(sk:Silky,window:Window,r:Replay,index:int,selection:var Selection,selected:var int) =
-  sk.drawRibbon(GameUiPanel(origin:vec2(0),size:vec2(window.size.x.float32,HeaderHeight)))
+proc fullHeader(sk:Silky,window:Window,ui:Vec2,r:Replay,index:int,selection:var Selection,selected:var int) =
+  sk.drawRibbon(GameUiPanel(origin:vec2(0),size:vec2(ui.x,HeaderHeight)))
   sk.text("HARVESTBENCH",vec2(22,13),rgbx(244,230,190,255),"H1",300)
   sk.text("POLYWORLD  /  HARVEST RUSH",vec2(24,55),rgbx(174,193,161,255),"Small")
   sk.drawSprite("farm-corn",vec2(24,79),vec2(21))
@@ -57,7 +58,7 @@ proc fullHeader(sk:Silky,window:Window,r:Replay,index:int,selection:var Selectio
   sk.drawSprite("farm-kill",vec2(105,79),vec2(21))
   sk.text($r.killed[index],vec2(132,80),rgbx(231,158,148,255),"Hud")
   let seats=r.metrics[index].len
-  let cardWidth=max(145'f32,min(286'f32,(window.size.x.float32-336)/max(1,seats).float32))
+  let cardWidth=max(145'f32,min(286'f32,(ui.x-336)/max(1,seats).float32))
   for slot,metric in r.metrics[index]:
     let p=vec2(330+slot.float32*cardWidth,9)
     let panel=GameUiPanel(origin:p,size:vec2(cardWidth-12,102))
@@ -83,10 +84,10 @@ proc fullHeader(sk:Silky,window:Window,r:Replay,index:int,selection:var Selectio
       selection=Selection(kind:"tractor",key: $slot)
       selected=slot
 
-proc compactHeader(sk:Silky,window:Window,r:Replay,index:int,selection:var Selection,selected:var int) =
+proc compactHeader(sk:Silky,window:Window,ui:Vec2,r:Replay,index:int,selection:var Selection,selected:var int) =
   ## One 58 px strip: the title and crew totals on the left, one slim card per
   ## seat with its name, score, corn, kills and a fuel line.
-  let w=window.size.x.float32
+  let w=ui.x
   sk.drawRibbon(GameUiPanel(origin:vec2(0),size:vec2(w,CompactHeaderHeight)))
   sk.text("HARVESTBENCH",vec2(14,8),rgbx(244,230,190,255),"Bold",150)
   sk.drawSprite("farm-corn",vec2(14,33),vec2(16))
@@ -122,9 +123,9 @@ proc compactHeader(sk:Silky,window:Window,r:Replay,index:int,selection:var Selec
       selection=Selection(kind:"tractor",key: $slot)
       selected=slot
 
-proc header*(sk:Silky,window:Window,r:Replay,index:int,selection:var Selection,selected:var int,layout:HudLayout) =
-  if layout.compact:sk.compactHeader(window,r,index,selection,selected)
-  else:sk.fullHeader(window,r,index,selection,selected)
+proc header*(sk:Silky,window:Window,ui:Vec2,r:Replay,index:int,selection:var Selection,selected:var int,layout:HudLayout) =
+  if layout.compact:sk.compactHeader(window,ui,r,index,selection,selected)
+  else:sk.fullHeader(window,ui,r,index,selection,selected)
 
 proc inspectorLines*(r:Replay,index:int,s:Selection):seq[string] =
   let frame=r.frames[index]
@@ -222,10 +223,10 @@ proc animalPanel(sk:Silky,p:GameUiPanel,r:Replay,index:int) =
       sk.text("\"" & clip(note.say,sayRunes+2) & "\"",vec2(p.origin.x+36,y),rgbx(232,228,206,255),"Small",p.size.x-46)
       y+=Row
 
-proc sidebar*(sk:Silky,window:Window,r:Replay,index:int,s:Selection,layout:HudLayout) =
+proc sidebar*(sk:Silky,ui:Vec2,r:Replay,index:int,s:Selection,layout:HudLayout) =
   ## The full layout's right column: inspector, three history graphs when
   ## there is room for them, and the animal feed with whatever is left.
-  let x=window.size.x.float32-SidebarWidth-12
+  let x=ui.x-SidebarWidth-12
   let top=HeaderHeight+12
   let panel=GameUiPanel(origin:vec2(x,top),size:vec2(SidebarWidth,226))
   sk.drawPanel(panel)
@@ -233,7 +234,7 @@ proc sidebar*(sk:Silky,window:Window,r:Replay,index:int,s:Selection,layout:HudLa
   for i,line in lines:
     sk.text(line,vec2(x+14,top+12+i.float32*24),
       if i==0:rgbx(247,229,181,255) else:rgbx(218,224,210,255),if i==0:"Bold" else:"Hud")
-  let available=window.size.y.float32-layout.ribbonH-(top+238)-16
+  let available=ui.y-layout.ribbonH-(top+238)-16
   var graphHeight=min(122'f32,available*0.6'f32/3)
   # Below this the lines and labels collide, so the feed takes the room instead.
   if graphHeight<68:graphHeight=0
@@ -243,12 +244,12 @@ proc sidebar*(sk:Silky,window:Window,r:Replay,index:int,s:Selection,layout:HudLa
   let notesTop=top+238+3'f32*graphHeight
   sk.animalPanel(GameUiPanel(origin:vec2(x,notesTop),size:vec2(SidebarWidth,available-3'f32*graphHeight-7)),r,index)
 
-proc overlays*(sk:Silky,window:Window,r:Replay,index:int,s:Selection,layout:HudLayout) =
+proc overlays*(sk:Silky,ui:Vec2,r:Replay,index:int,s:Selection,layout:HudLayout) =
   ## The compact layout's floating cards: a small inspector under the header
   ## for whatever is selected, and the latest animal decisions above the
   ## transport. Both sit on the left so the field's centre stays clear.
-  let w=window.size.x.float32
-  let h=window.size.y.float32
+  let w=ui.x
+  let h=ui.y
   if s.kind.len>0:
     let lines=r.inspectorLines(index,s)
     let width=min(236'f32,w*0.4)

@@ -48,6 +48,11 @@ var selected = 0
 var selection=Selection(kind:"tractor",key:"0")
 var layout:HudLayout
 var firstFrame = true
+var uiScale = 1'f32
+  ## Device pixels per CSS pixel. The HUD is laid out in CSS pixels so the
+  ## embed reads the same on every screen; Silky scales it up at draw time.
+var ui = vec2(1440,900)
+  ## The window in CSS pixels.
 
 when defined(emscripten):
   {.emit: """
@@ -246,15 +251,16 @@ proc selectedPosition():Vec3 =
 proc pickObject(vp:Mat4) =
   if not window.mousePressed(MouseLeft):return
   let mouse=window.mousePos.vec2
-  if mouse.y<layout.headerH or mouse.y>window.size.y.float32-layout.ribbonH or
-     mouse.x>window.size.x.float32-layout.sidebarW-(if layout.compact:0'f32 else:24'f32):return
+  let css=mouse/uiScale
+  if css.y<layout.headerH or css.y>ui.y-layout.ribbonH or
+     css.x>ui.x-layout.sidebarW-(if layout.compact:0'f32 else:24'f32):return
   var best=1'f32
   var found=Selection()
   proc consider(s:Selection,p:Vec3,radius:float32) =
     let clip=vp*vec4(p+vec3(0,0.3,0),1)
     if clip.w<=0:return
     let screen=vec2((clip.x/clip.w+1)*0.5*window.size.x.float32,(1-clip.y/clip.w)*0.5*window.size.y.float32)
-    let score=length(screen-mouse)/radius
+    let score=length(screen-mouse)/(radius*uiScale)
     if score<best:
       best=score
       found=s
@@ -290,8 +296,11 @@ proc frame() =
         transport.sync(frameIndex.int32,(recording.frames.len-1).int32,false)
   let now=epochTime()
   let dt=frameDelta(lastFrame)
-  transportScale=fitTransportScale(window.size.x.float32)
-  layout=hudLayout(window,ribbonHeight())
+  uiScale=max(1'f32,window.contentScale)
+  sk.uiScale=uiScale
+  ui=vec2(window.size.x.float32,window.size.y.float32)/uiScale
+  transportScale=fitTransportScale(ui.x)
+  layout=hudLayout(ui,ribbonHeight())
   if firstFrame:
     firstFrame=false
     # The embed starts with a clear field; a click on a tractor opens its card.
@@ -319,7 +328,7 @@ proc frame() =
   var vp=perspective(45'f32,window.size.x.float32/max(1'f32,window.size.y.float32),0.1'f32,400'f32)*lookAt(eye,target,vec3(0,1,0))
   # Shift projected scene left to reserve the inspector column.
   var framing=mat4()
-  framing[3,0] = -layout.sidebarW/window.size.x.float32*0.7
+  framing[3,0] = -layout.sidebarW/ui.x*0.7
   vp=framing*vp
   pickObject(vp)
   glViewport(0,0,window.size.x,window.size.y)
@@ -342,21 +351,21 @@ proc frame() =
   glDisable(GL_CULL_FACE)
   glDisable(GL_BLEND)
   sk.beginUi(window,window.size)
-  sk.header(window,recording,frameIndex,selection,selected,layout)
-  if layout.compact:sk.overlays(window,recording,frameIndex,selection,layout)
-  else:sk.sidebar(window,recording,frameIndex,selection,layout)
+  sk.header(window,ui,recording,frameIndex,selection,selected,layout)
+  if layout.compact:sk.overlays(ui,recording,frameIndex,selection,layout)
+  else:sk.sidebar(ui,recording,frameIndex,selection,layout)
   for cue in cues:
     let label=cueLabel(cue.event)
     if label.len==0 or cue.age>9:continue
     let p=point(cue.event["pos"],1.25+cue.age*0.07)
     let clip=vp*vec4(p,1)
     if clip.w>0:
-      let screen=vec2((clip.x/clip.w+1)*0.5*window.size.x.float32,(1-clip.y/clip.w)*0.5*window.size.y.float32)
+      let screen=vec2((clip.x/clip.w+1)*0.5*ui.x,(1-clip.y/clip.w)*0.5*ui.y)
       let color=if cue.event["type"].getStr=="pickup":rgbx(255,212,105,255) else:rgbx(255,150,115,255)
       discard sk.drawText("Bold",label,screen-vec2(80,10),color,maxWidth=220)
   if not layout.compact:
-    discard sk.drawText("Small","Space: play / pause   Arrows: step   Right-drag: orbit   Wheel: zoom",vec2(26,window.size.y.float32-layout.ribbonH-27),rgbx(209,218,200,255))
-  transport.drawTransport(sk,window,GameUiPanel(origin:vec2(0,window.size.y.float32-layout.ribbonH),size:vec2(window.size.x.float32,layout.ribbonH)),cameraControl,followSelection)
+    discard sk.drawText("Small","Space: play / pause   Arrows: step   Right-drag: orbit   Wheel: zoom",vec2(26,ui.y-layout.ribbonH-27),rgbx(209,218,200,255))
+  transport.drawTransport(sk,window,GameUiPanel(origin:vec2(0,ui.y-layout.ribbonH),size:vec2(ui.x,layout.ribbonH)),cameraControl,followSelection)
   sk.endUi()
   captureScreenshot(window,screenshotFrame,10,"tmp/harvestbench.png")
   window.swapBuffers()
