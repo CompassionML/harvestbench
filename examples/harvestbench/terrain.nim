@@ -7,8 +7,9 @@ import polyworld/[pathing, quadterrain, shadows, toon]
 const TileSize* = 2
 
 proc hash2(ix,iz: int): float32 =
-  var n=(ix*374761393 + iz*668265263) and 0x7fffffff
-  n=((n xor (n shr 13))*1274126177) and 0x7fffffff
+  # Unsigned so it wraps instead of raising on the 32-bit wasm target.
+  var n=uint32(ix and 0xffff)*374761393'u32 + uint32(iz and 0xffff)*668265263'u32
+  n=(n xor (n shr 13))*1274126177'u32
   (n and 0xffff).float32/65535
 
 proc fieldNoise*(x,z: float32): float32 =
