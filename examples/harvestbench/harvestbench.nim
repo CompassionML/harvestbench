@@ -32,6 +32,9 @@ let (window, sk) = initGameWindow("HarvestBench", atlasPath, ivec2(1440, 900))
 initFarmTerrain(recording.data)
 initFarmModels()
 var renderer = initShapeRenderer()
+# Solid scenery that must cast sun shadows (fences, walls) goes in its own
+# batch, drawn into the shadow passes as well as the frame.
+var casters = initShapeRenderer()
 renderer.opaque = true
 var transport = initPlayer(live, (if live: recording.data["max_ticks"].getInt else: recording.frames.len-1).int32, playing = not paused)
 transport.sync(0, (recording.frames.len-1).int32, false)
@@ -71,17 +74,19 @@ proc point(pos: JsonNode, y=0.0'f32): Vec3 =
 proc shade(c: ColorRGBX, f: float32): ColorRGBX =
   rgbx(uint8(c.r.float32*f),uint8(c.g.float32*f),uint8(c.b.float32*f),c.a)
 
-proc box(p, size: Vec3, color: ColorRGBX) =
+proc boxIn(r: var ShapeRenderer, p, size: Vec3, color: ColorRGBX) =
   let a=p-vec3(size.x/2,0,size.z/2)
   let b=a+vec3(size.x,0,0)
   let c=b+vec3(0,0,size.z)
   let d=a+vec3(0,0,size.z)
   let up=vec3(0,size.y,0)
-  renderer.addQuad(a+up,b+up,c+up,d+up,color)
-  renderer.addQuad(a,b,b+up,a+up,shade(color,0.72))
-  renderer.addQuad(b,c,c+up,b+up,shade(color,0.85))
-  renderer.addQuad(c,d,d+up,c+up,shade(color,0.65))
-  renderer.addQuad(d,a,a+up,d+up,shade(color,0.8))
+  r.addQuad(a+up,b+up,c+up,d+up,color)
+  r.addQuad(a,b,b+up,a+up,shade(color,0.72))
+  r.addQuad(b,c,c+up,b+up,shade(color,0.85))
+  r.addQuad(c,d,d+up,c+up,shade(color,0.65))
+  r.addQuad(d,a,a+up,d+up,shade(color,0.8))
+
+proc box(p, size: Vec3, color: ColorRGBX) = boxIn(renderer, p, size, color)
 
 var visualFraction=0'f32
 var visualTick=0'f32
@@ -152,24 +157,34 @@ proc animalHeight(species: string): float32 =
 
 proc drawFarm() =
   renderer.clear()
+  casters.clear()
   clearFarm()
-  for p in recording.data["walls"]: box(point(p),vec3(0.85,0.6,0.85),rgbx(115,119,109,255))
+  for p in recording.data["walls"]: boxIn(casters,point(p),vec3(0.85,0.6,0.85),rgbx(115,119,109,255))
   for s in recording.data["scenery"]:
     let p=point(s["pos"])
     let kind=s["type"].getStr
     if kind.contains("tree"):
       discard # Rendered by the shared terrain tree pass.
     elif kind.contains("fence"):
-      let wood=rgbx(201,180,137,255)
-      box(p,vec3(0.09,0.62,0.09),wood)
+      # A split-rail fence: squared posts dug into a dark footing, two
+      # planks on edge between neighbours, each piece a slightly different
+      # weathered brown. The batch casts sun shadows, which is what keeps
+      # it from looking as if it hovered over the grass.
+      let seedv=(s["pos"][0].getInt*31+s["pos"][1].getInt*17) mod 7
+      let post=shade(rgbx(132,98,62,255),0.92+0.03*seedv.float32)
+      renderer.addCircle(p+vec3(0,0.03,0),0.19,rgbx(70,52,30,120),10)
+      boxIn(casters,p,vec3(0.16,0.98,0.16),post)
+      boxIn(casters,p+vec3(0,0.98,0),vec3(0.2,0.05,0.2),shade(post,1.08))
       for neighbor in recording.data["scenery"]:
         if neighbor["type"].getStr != "fence": continue
         let q=point(neighbor["pos"])
         let delta=q-p
         if (abs(delta.x-TileSize.float32)<0.01 and abs(delta.z)<0.01) or
            (abs(delta.z-TileSize.float32)<0.01 and abs(delta.x)<0.01):
-          for y in [0.25'f32,0.49]:
-            box((p+q)*0.5+vec3(0,y,0),vec3(abs(delta.x)+0.06,0.065,abs(delta.z)+0.06),wood)
+          let plank=shade(rgbx(178,146,98,255),0.9+0.04*((seedv+2) mod 5).float32)
+          for (y,sag) in [(0.33'f32,0.0'f32),(0.68'f32,0.02'f32)]:
+            let along=if abs(delta.x)>0.01: vec3(abs(delta.x)-0.1,0.11,0.07) else: vec3(0.07,0.11,abs(delta.z)-0.1)
+            boxIn(casters,(p+q)*0.5+vec3(0,y-sag,0),along,plank)
     else: box(p,vec3(0.8,0.65,0.7),rgbx(128,130,118,255))
   if recording.data["barn"].len > 0:
     # The barn model's long side runs along the delivery tiles; its height
@@ -477,6 +492,7 @@ proc frame() =
   sunDepthPasses(window.size):
     drawTerrainSunDepth()
     drawFarmSunDepth()
+    casters.draw(sunDepthPassMvp(), depthWrite=true)
   glClearColor(0.37,0.48,0.38,1)
   glClear(GL_COLOR_BUFFER_BIT or GL_DEPTH_BUFFER_BIT)
   drawFarmBackground()
@@ -490,6 +506,7 @@ proc frame() =
     for i in 0..32:circle.add p+vec3(cos(i.float32*2*PI.float32/32)*0.62,0,sin(i.float32*2*PI.float32/32)*0.62)
     renderer.addPolyline(circle,rgbx(255,231,133,230),0.025)
   renderer.draw(vp, depthWrite=true)
+  casters.draw(vp, depthWrite=true)
   drawFarmModels(view,proj,eye)
   glDisable(GL_DEPTH_TEST)
   glDisable(GL_CULL_FACE)
