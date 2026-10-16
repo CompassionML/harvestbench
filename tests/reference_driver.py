@@ -1,4 +1,4 @@
-"""Deterministic answers for the fake Bedrock test server; never shipped as players."""
+"""Deterministic answers for the fake native chat test server; never shipped as players."""
 
 import re
 from typing import Any

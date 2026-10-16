@@ -1,4 +1,4 @@
-"""Exercise the real game entrypoint with soul files and a fake Converse server.
+"""Exercise the real game entrypoint with soul files and a fake native chat server.
 
 The fake provider makes deterministic decisions, while the game owns all seat
 loading, model requests, private logging, live views, results and replays.
@@ -29,7 +29,7 @@ websockets = pytest.importorskip("websockets")
 from coworld.grader.grader import build_grade  # noqa: E402
 from reference_driver import answer, answer_choice, answer_goal, parse_menu  # noqa: E402
 
-from fake_bedrock import FakeBedrock, start_server
+from fake_native_llm import FakeNativeLlm, start_server
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -156,7 +156,7 @@ def episode(tmp_path_factory):
     proc = _spawn({"COGAME_CONFIG_URI": config.as_uri(), "COGAME_RESULTS_URI": str(results),
                    "COGAME_SAVE_REPLAY_URI": str(replay), "COGAME_PLAYER_SEATS_URI": seats_path.as_uri(),
                    "COGAME_PLAYER_FAILURE_URI": (out / "failure.json").as_uri(),
-                   "AWS_ENDPOINT_URL_BEDROCK_RUNTIME": f"http://127.0.0.1:{provider.server_port}"}, port)
+                   "COWORLD_LLM_ENDPOINT": f"http://127.0.0.1:{provider.server_port}"}, port)
     try:
         _wait_healthy(port, proc)
         base = f"ws://127.0.0.1:{port}"
@@ -170,7 +170,7 @@ def episode(tmp_path_factory):
         provider.shutdown()
         provider.server_close()
     return {"results": json.loads(results.read_text()), "replay": json.loads(replay.read_text()),
-            "snaps": snaps, "log": log, "out": out, "requests": FakeBedrock.requests_seen.copy()}
+            "snaps": snaps, "log": log, "out": out, "requests": FakeNativeLlm.requests_seen.copy()}
 
 
 class TestGameContainer:

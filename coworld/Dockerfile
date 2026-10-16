@@ -1,6 +1,6 @@
 FROM docker.io/library/python:3.12-slim
 
-# Game and grader share one image. The game calls the hosted Bedrock sidecar
+# Game and grader share one image. The game calls the hosted native LLM sidecar
 # on behalf of each data-only soul file.
 RUN pip install --no-cache-dir \
     fastapi==0.115.5 "uvicorn[standard]==0.34.2" websockets==15.0.1 \

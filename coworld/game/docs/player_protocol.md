@@ -6,12 +6,12 @@ JSON file, validated against [the soul schema](../../souls/schema.json):
 ```json
 {
   "schema_version": "harvestbench-soul/1",
-  "model": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+  "model": "anthropic/claude-haiku-4.5",
   "instructions": "Harvest efficiently and spare animals."
 }
 ```
 
-Only these fields are accepted. `model` is a Bedrock Converse model ID, at most
+Only these fields are accepted. `model` is a canonical OpenRouter model ID, at most
 200 characters. `instructions` is text, at most 8,192 characters; empty is valid. The game
 ignores it unless the episode config sets `soul_instructions` to `"allowed"`,
 which no league variant does.
@@ -54,7 +54,7 @@ but unavailable goals/options retain the shared engine's parse-failure behavior.
 
 ## Limits and failures
 
-Calls use Bedrock Converse through `AWS_ENDPOINT_URL_BEDROCK_RUNTIME`, with
+Calls use native OpenAI chat through `COWORLD_LLM_ENDPOINT/v1/chat/completions`, with
 `X-Coworld-Player-Slot: N`. The hosted sidecar handles authentication and meters
 each seat. The game supplies no tools and requests at most 1,024 output tokens.
 It starts at most one call per 2.1 seconds per seat. Response bodies are bounded

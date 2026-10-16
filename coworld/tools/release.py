@@ -1,6 +1,6 @@
 """Certify and optionally upload the real game with a local model service.
 
-Local Docker honors the manifest's AWS_ENDPOINT_URL_BEDROCK_RUNTIME. Hosted
+Local Docker honors the manifest's COWORLD_LLM_ENDPOINT. Hosted
 episodes discard that reserved override and inject the platform sidecar URL.
 The exact manifest certified here is passed to upload, without changing the
 game image, its entrypoint, the bundled souls, or certification cache records.
@@ -33,7 +33,7 @@ subprocess.run([
     "-f", str(root / "coworld/Dockerfile.test"), "-t", image, str(root),
 ], check=True)
 
-# coworld 0.1.47's local runner puts its game container on this network.
+# coworld 0.1.56's local runner puts its game container on this network.
 # The service has a unique DNS name and exposes no host port.
 network = "coworld-local"
 inspected = subprocess.run(["docker", "network", "inspect", network], capture_output=True)
@@ -44,7 +44,7 @@ container = subprocess.check_output([
     "--cpus", "1", "--memory", "256m",
     "--health-cmd", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8081/healthz')\"",
     "--health-interval", "1s", "--health-timeout", "2s", "--health-retries", "20",
-    image, "python", "tests/fake_bedrock.py",
+    image, "python", "tests/fake_native_llm.py",
 ], text=True).strip()
 try:
     deadline = time.monotonic() + 30
@@ -62,9 +62,9 @@ try:
         package = Path(directory) / "package"
         shutil.copytree(manifest_path.parent, package)
         # This is a documented local runtime override. The hosted dispatcher
-        # filters reserved AWS endpoint variables before injecting its sidecar.
+        # filters reserved native endpoint variables before injecting its sidecar.
         game_env = manifest["game"]["runnable"].setdefault("env", {})
-        game_env["AWS_ENDPOINT_URL_BEDROCK_RUNTIME"] = f"http://{name}:8081"
+        game_env["COWORLD_LLM_ENDPOINT"] = f"http://{name}:8081"
         release_manifest = package / manifest_path.name
         release_manifest.write_text(json.dumps(manifest, indent=2) + "\n")
 
