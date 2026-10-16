@@ -188,6 +188,17 @@ proc drawFarm() =
     let across=TileSize.float32*1.35
     let size=vec3(across/1.028,across/1.028*1.05,length/1.221)
     placeFarm("barn",p,if alongX:PI.float32/2 else:0'f32,size)
+  # Two tyre ruts follow the lane so the road reads as driven dirt.
+  let rut=rgbx(118,88,54,110)
+  for side in [-0.42'f32,0.42]:
+    var prev=vec3(0)
+    var gx=4.0'f32
+    while gx<=22.5:
+      let lane=6.4+0.65*sin(gx*0.29)
+      let here=vec3((gx-width/2+0.5)*TileSize.float32,0.014,(lane-height/2+0.5+side)*TileSize.float32)
+      if gx>4.0:renderer.addLine(prev,here,rut,0.06)
+      prev=here
+      gx+=0.5
   # Parallel planting furrows are a farm feature, not simulation tile borders.
   for field in [(1.0'f32,5.0'f32,3.0'f32,11.0'f32),(16.0'f32,21.0'f32,10.0'f32,14.0'f32)]:
     var x=field[0]+0.2
@@ -216,8 +227,9 @@ proc drawFarm() =
       for ch in entity["id"].getStr:phase+=ch.ord.float32*0.17
       if hasFarmModel(species):
         let seconds=(visualTick-deathAge(entity))/6
-        let t=seconds*0.65+phase
-        let yaw=arctan2(-0.12*sin(t),0.10*cos(t))
+        # Each animal keeps the heading its phase gives it and only sways a
+        # little, instead of turning with a circular walk.
+        let yaw=phase+0.08*sin(seconds*0.45)
         let h=animalHeight(species)
         let tint=if species=="opossum":color(0.62,0.6,0.62,1) else:color(1,1,1,1)
         if alive:
@@ -234,9 +246,9 @@ proc drawFarm() =
       placeFarm("rock",p,turn,vec3(0.52,0.62,0.42))
     else:
       if entity["alive"].getBool:
-        placeFarm("hay",p,0,vec3(1.5,1.0,1.5))
+        placeFarm("hay",p,0,vec3(1.7,0.8,1.7),color(1.35,1.25,0.9,1))
       else:
-        placeFarm("hay",p,0,vec3(1.8,0.28,1.8))
+        placeFarm("hay",p,0,vec3(1.8,0.28,1.8),color(1.35,1.25,0.9,1))
   for actor in frame["agents"]:
     var p=point(actor["pos"])
     let slot=actor["slot"].getInt
@@ -396,6 +408,8 @@ proc frame() =
     drawFarmSunDepth()
   glClearColor(0.37,0.48,0.38,1)
   glClear(GL_COLOR_BUFFER_BIT or GL_DEPTH_BUFFER_BIT)
+  drawFarmBackground()
+  glDepthMask(GL_TRUE)
   glEnable(GL_DEPTH_TEST)
   glDisable(GL_CULL_FACE)
   drawTerrain(vp, showEdges=false)

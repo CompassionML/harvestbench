@@ -15,7 +15,7 @@ proc farmElevation(x,z,w,h: float32): float32 =
 proc initFarmTerrain*(data: JsonNode) =
   let w=data["width"].getInt*TileSize
   let h=data["height"].getInt*TileSize
-  const border=12
+  const border=22
   let ground=QuadLayer(originX:HalfGrid.int-w div 2-border,
     originZ:HalfGrid.int-h div 2-border,width:w+2*border,depth:h+2*border,
     tiles:newSeq[Tile]((w+2*border)*(h+2*border)))
@@ -59,7 +59,7 @@ proc initFarmTerrain*(data: JsonNode) =
   terrainBlendDepth=0.65
   terrainSplatChance=0.35
   setTileColor(GrassTile.int,vec3(0.93,1.0,0.85),vec3(0.75))
-  setTileColor(RoadTile.int,vec3(0.88,0.81,0.65),vec3(0.7))
+  setTileColor(RoadTile.int,vec3(0.80,0.66,0.47),vec3(0.62))
   computeWalkable()
   scatterGrass(2200,data["seed"].getInt,matchTerrain=true)
   bakeTerrain(rebuildWalkability=false)

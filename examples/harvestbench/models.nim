@@ -59,6 +59,11 @@ proc placeFarm*(name: string, at: Vec3, yaw, height: float32,
                 tint = color(1, 1, 1, 1), roll = 0'f32) =
   placeFarm(name, at, yaw, vec3(height), tint, roll)
 
+proc drawFarmBackground*() =
+  ## The palette's sky-to-ground gradient behind the farm, in place of a flat
+  ## clear colour. Call right after the clear, before depth testing is on.
+  toonCtx.drawBackground()
+
 proc drawFarmSunDepth*() =
   ## Call inside sunDepthPasses so the models cast shadows.
   for inst in instances:

@@ -30,8 +30,10 @@ proc ellipsoid(renderer: var ShapeRenderer, pose: Pose, center,size: Vec3,c:Colo
       renderer.addQuad(vertex(row,col),vertex(row+1,col),vertex(row+1,col+1),vertex(row,col+1),color)
 
 proc animalWalk*(seconds, phase:float32):Vec3 =
+  ## A short shuffle back and forth along the animal's own heading (the
+  ## heading is the phase), so it never looks like it is turning in place.
   let t=seconds*0.65+phase
-  vec3(0.12*cos(t),0,0.10*sin(t))
+  vec3(sin(phase),0,cos(phase))*(0.06*sin(t))
 
 proc cuteAnimal*(renderer: var ShapeRenderer, at:Vec3, species:string,
                  alive:bool, seconds,phase,impactAge:float32) =
