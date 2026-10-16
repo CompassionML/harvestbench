@@ -33,6 +33,8 @@ proc initFarmModels*(hour = 15.4'f32) =
   toonCtx.setPalette(paletteAtHour(hour))
   for name in FarmModelNames:
     roots[name] = readGltfFile(DataRoot & "/farm/" & name & ".glb").root
+    # The toon shader lights by normal; a file without them would go black.
+    roots[name].ensureNormals()
 
 proc hasFarmModel*(name: string): bool = name in roots
 
