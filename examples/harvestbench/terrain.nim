@@ -66,10 +66,10 @@ proc onFarmLane*(p: Vec2): bool =
 
 # Cultivated plots: soft rounded blobs (a squared-off ellipse with a wobbly
 # edge), one at the upper left and one inside the lower fence.
-const Plots=[(vec2(3.0,7.0),vec2(2.1,4.1)),(vec2(18.5,12.0),vec2(2.6,2.1))]
+const FarmPlots*=[(vec2(3.0,7.0),vec2(2.1,4.1)),(vec2(18.5,12.0),vec2(2.6,2.1))]
 
 proc inFarmPlot*(p: Vec2): bool =
-  for (c,r) in Plots:
+  for (c,r) in FarmPlots:
     let d=p-c
     let e=pow(abs(d.x/r.x),2.6'f32)+pow(abs(d.y/r.y),2.6'f32)
     if e<1+0.22*(fieldNoise(p.x*1.3,p.y*1.3)-0.5): return true
@@ -94,11 +94,9 @@ proc initFarmTerrain*(data: JsonNode) =
       let wz=z-border
       let gx=floor(wx.float32/TileSize.float32).int
       let gz=floor(wz.float32/TileSize.float32).int
+      # All grass: the dirt is drawn as flat decal geometry (harvestbench.nim)
+      # because tile kinds can only blend along the tile grid, in steps.
       var kind=GrassTile
-      # Dirt follows curves, never cell boundaries: rounded plots and a
-      # winding lane, both with a noisy edge, tested at the tile's centre.
-      let cell=vec2((wx.float32+0.5)/TileSize.float32,(wz.float32+0.5)/TileSize.float32)
-      if inFarmPlot(cell) or onFarmLane(cell): kind=RoadTile
       if gx<0 or gx>=w div TileSize or gz<0 or gz>=h div TileSize:
         if (x*19+z*37) mod 17==0 and (gx < -2 or gx>w div TileSize+2 or gz < -2 or gz>h div TileSize+2):
           kind=TreeTile

@@ -191,8 +191,68 @@ proc drawFarm() =
   # Two tyre ruts ride the lane's curve so the road reads as driven dirt.
   proc world(c: Vec2, y: float32): Vec3 =
     vec3((c.x-width/2)*TileSize.float32,y,(c.y-height/2)*TileSize.float32)
+  # Dirt as decal geometry over the grass: its edges follow the curves
+  # exactly, where terrain tile kinds could only step along the grid.
+  proc dirtColor(c: Vec2, alpha: uint8): ColorRGBX =
+    let k=0.9+0.2*fieldNoise(c.x*2.1+7,c.y*2.1+3)
+    rgbx(uint8(clamp(168*k,0,255)),uint8(clamp(122*k,0,255)),uint8(clamp(76*k,0,255)),alpha)
+  let verge=rgbx(118,96,50,115)
+  const VergeWidth=0.34'f32
+  let lanePts=farmLane()
+  var left,right,leftOut,rightOut: seq[Vec2]
+  for i in 0..<lanePts.len:
+    let prev=lanePts[max(i-1,0)]
+    let next=lanePts[min(i+1,lanePts.len-1)]
+    let t=normalize(next-prev)
+    let n=vec2(-t.y,t.x)
+    let w=laneHalfWidth(lanePts[i])
+    left.add lanePts[i]+n*w
+    right.add lanePts[i]-n*w
+    leftOut.add lanePts[i]+n*(w+VergeWidth)
+    rightOut.add lanePts[i]-n*(w+VergeWidth)
+  for i in 1..<lanePts.len:
+    if inFarmPlot(lanePts[i-1]) and inFarmPlot(lanePts[i]): continue
+    let col=dirtColor((lanePts[i-1]+lanePts[i])*0.5'f32,255)
+    renderer.addQuad(world(left[i-1],0.02),world(left[i],0.02),world(right[i],0.02),world(right[i-1],0.02),col)
+    renderer.addQuad(world(leftOut[i-1],0.01),world(leftOut[i],0.01),world(left[i],0.01),world(left[i-1],0.01),verge)
+    renderer.addQuad(world(right[i-1],0.01),world(right[i],0.01),world(rightOut[i],0.01),world(rightOut[i-1],0.01),verge)
+  for (c,r) in FarmPlots:
+    const Sides=72
+    var rim: seq[Vec2]
+    for k in 0..<Sides:
+      let a=TAU.float32*k.float32/Sides
+      let d=vec2(cos(a),sin(a))
+      var lo=0'f32
+      var hi=max(r.x,r.y)*1.4
+      for _ in 0..<14:
+        let mid=(lo+hi)*0.5
+        if inFarmPlot(c+d*mid): lo=mid else: hi=mid
+      rim.add c+d*lo
+    let col=dirtColor(c,255)
+    for k in 0..<Sides:
+      let p0=rim[k]
+      let p1=rim[(k+1) mod Sides]
+      renderer.addTriangle(world(c,0.02),world(p0,0.02),world(p1,0.02),col)
+      let o0=p0+normalize(p0-c)*VergeWidth
+      let o1=p1+normalize(p1-c)*VergeWidth
+      renderer.addQuad(world(p0,0.01),world(p1,0.01),world(o1,0.01),world(o0,0.01),verge)
+  # Dust and pebbles break up the flat dirt.
+  var seed=12345'u32
+  for i in 0..<220:
+    seed=seed*1664525'u32+1013904223'u32
+    let x=(seed shr 8).float32/16777216*width.float32
+    seed=seed*1664525'u32+1013904223'u32
+    let z=(seed shr 8).float32/16777216*height.float32
+    seed=seed*1664525'u32+1013904223'u32
+    let c=vec2(x,z)
+    if not (inFarmPlot(c) or onFarmLane(c)): continue
+    let big=(seed shr 8).float32/16777216
+    if big<0.75:
+      renderer.addCircle(world(c,0.025),0.06+0.12*big,rgbx(96,74,44,70),8)
+    else:
+      renderer.addCircle(world(c,0.025),0.05+0.06*(big-0.75),rgbx(205,170,130,120),8)
   let rut=rgbx(118,88,54,110)
-  let lane=farmLane()
+  let lane=lanePts
   for side in [-0.36'f32,0.36]:
     for i in 1..<lane.len:
       let a=lane[i-1]
@@ -200,7 +260,7 @@ proc drawFarm() =
       let t=normalize(b-a)
       let n=vec2(-t.y,t.x)*side
       if inFarmPlot(a) and inFarmPlot(b): continue
-      renderer.addLine(world(a+n,0.014),world(b+n,0.014),rut,0.06)
+      renderer.addLine(world(a+n,0.04),world(b+n,0.04),rut,0.06)
   # Planting furrows: short runs that stop at the plot's curved edge.
   let furrow=rgbx(109,87,51,90)
   for (c,r) in [(vec2(3.0,7.0),vec2(2.1,4.1)),(vec2(18.5,12.0),vec2(2.6,2.1))]:
@@ -213,7 +273,7 @@ proc drawFarm() =
         if inside and runStart<0: runStart=z
         if not inside and runStart>=0:
           if z-runStart>0.6:
-            renderer.addLine(world(vec2(x,runStart+0.15),0.012),world(vec2(x,z-0.4),0.012),furrow,0.017)
+            renderer.addLine(world(vec2(x,runStart+0.15),0.03),world(vec2(x,z-0.4),0.03),furrow,0.017)
           runStart= -1'f32
         z+=0.25
       x+=0.32
