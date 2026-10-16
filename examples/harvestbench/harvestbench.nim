@@ -2,7 +2,7 @@
 import std/[json, math, os, strutils, times]
 import chroma, opengl, pixie, silky, vmath, windy
 import polyworld/[actioncam, common, gameuis, inputs, player, shapes, viewers]
-import replay, terrain, animals, effects, hud
+import replay, terrain, animals, effects, hud, models
 import pixie/fileformats/svg
 import polyworld/[quadterrain, shadows]
 
@@ -30,6 +30,7 @@ for (name, data) in farmIcons:
 builder.write(atlasPath)
 let (window, sk) = initGameWindow("HarvestBench", atlasPath, ivec2(1440, 900))
 initFarmTerrain(recording.data)
+initFarmModels()
 var renderer = initShapeRenderer()
 renderer.opaque = true
 var transport = initPlayer(live, (if live: recording.data["max_ticks"].getInt else: recording.frames.len-1).int32, playing = not paused)
@@ -38,8 +39,8 @@ var cameraControl = initActionCam(minDistance=12, maxDistance=50)
 cameraControl.enabled = false
 var followSelection = false
 var yaw = 0.72'f32
-var pitch = 0.95'f32
-var distance = 60'f32
+var pitch = 0.72'f32
+var distance = 48'f32
 var target = vec3(0,0,0)
 var frameIndex = 0
 var lastFrame = epochTime()
@@ -102,8 +103,56 @@ proc entityPosition(entity:JsonNode):Vec3 =
   if entity["kind"].getStr=="creature":
     result+=animalWalk((visualTick-deathAge(entity))/6,entityPhase(entity))
 
+proc rotBox(center, size: Vec3, yaw: float32, color: ColorRGBX) =
+  ## A box turned about y, for the cargo basket that trails a tractor.
+  let c=cos(yaw)
+  let sn=sin(yaw)
+  proc at(dx,dz:float32):Vec3 = center+vec3(dx*c+dz*sn,0,-dx*sn+dz*c)
+  let a=at(-size.x/2,-size.z/2)
+  let b=at(size.x/2,-size.z/2)
+  let cc=at(size.x/2,size.z/2)
+  let d=at(-size.x/2,size.z/2)
+  let up=vec3(0,size.y,0)
+  renderer.addQuad(a+up,b+up,cc+up,d+up,color)
+  renderer.addQuad(a,b,b+up,a+up,shade(color,0.72))
+  renderer.addQuad(b,cc,cc+up,b+up,shade(color,0.85))
+  renderer.addQuad(cc,d,d+up,cc+up,shade(color,0.65))
+  renderer.addQuad(d,a,a+up,d+up,shade(color,0.8))
+
+var lastHeading: array[4, float32]
+
+proc agentHeading(slot: int): float32 =
+  ## Where the tractor last drove, held while it stands still.
+  let here = recording.frames[frameIndex]["agents"][slot]["pos"]
+  var i = frameIndex - 1
+  while i >= 0 and i >= frameIndex - 8:
+    let there = recording.frames[i]["agents"][slot]["pos"]
+    if there != here:
+      let dx = (here[0].getInt - there[0].getInt).float32
+      let dz = (here[1].getInt - there[1].getInt).float32
+      lastHeading[slot] = arctan2(dx, dz)
+      break
+    dec i
+  lastHeading[slot]
+
+proc animalHeight(species: string): float32 =
+  case species
+  of "cow": 1.35
+  of "pig", "boar": 0.9
+  of "sheep": 1.0
+  of "chicken": 0.55
+  of "goose": 0.75
+  of "wild_goose": 0.85
+  of "duck": 0.5
+  of "rabbit": 0.45
+  of "squirrel": 0.4
+  of "mouse": 0.22
+  of "opossum": 0.32
+  else: 0.7
+
 proc drawFarm() =
   renderer.clear()
+  clearFarm()
   for p in recording.data["walls"]: box(point(p),vec3(0.85,0.6,0.85),rgbx(115,119,109,255))
   for s in recording.data["scenery"]:
     let p=point(s["pos"])
@@ -123,25 +172,22 @@ proc drawFarm() =
             box((p+q)*0.5+vec3(0,y,0),vec3(abs(delta.x)+0.06,0.065,abs(delta.z)+0.06),wood)
     else: box(p,vec3(0.8,0.65,0.7),rgbx(128,130,118,255))
   if recording.data["barn"].len > 0:
+    # The barn model's long side runs along the delivery tiles; its height
+    # follows its width so a long barn stretches rather than towers.
     var p=vec3(0)
-    for tile in recording.data["barn"]: p+=point(tile)
+    var lo=vec3(float32.high)
+    var hi=vec3(float32.low)
+    for tile in recording.data["barn"]:
+      let q=point(tile)
+      p+=q
+      lo=min(lo,q)
+      hi=max(hi,q)
     p=p/recording.data["barn"].len.float32
-    let length=recording.data["barn"].len.float32*TileSize.float32+0.3
-    let red=rgbx(164,69,47,255)
-    let roof=rgbx(78,80,73,255)
-    box(p,vec3(1.18,1.0,length),red)
-    let a=p+vec3(-0.7,1,-length/2-0.13)
-    let b=p+vec3(0.7,1,-length/2-0.13)
-    let ridge=p+vec3(0,1.6,-length/2-0.13)
-    let back=vec3(0,0,length+0.26)
-    renderer.addQuad(a,ridge,ridge+back,a+back,roof)
-    renderer.addQuad(ridge,b,b+back,ridge+back,shade(roof,0.8))
-    renderer.addTriangle(a,b,ridge,red)
-    renderer.addTriangle(a+back,ridge+back,b+back,red)
-    box(p+vec3(-0.598,0.02,0),vec3(0.04,0.8,0.85),rgbx(81,62,43,255))
-    for dz in [-0.46'f32,0.46]:
-      box(p+vec3(-0.63,0,dz),vec3(0.07,0.86,0.07),rgbx(223,207,166,255))
-    box(p+vec3(-0.63,0.83,0),vec3(0.07,0.065,0.98),rgbx(223,207,166,255))
+    let alongX=(hi.x-lo.x)>=(hi.z-lo.z)
+    let length=(if alongX:hi.x-lo.x else:hi.z-lo.z)+TileSize.float32+0.6
+    let across=TileSize.float32*1.35
+    let size=vec3(across/1.028,across/1.028*1.05,length/1.221)
+    placeFarm("barn",p,if alongX:PI.float32/2 else:0'f32,size)
   # Parallel planting furrows are a farm feature, not simulation tile borders.
   for field in [(1.0'f32,5.0'f32,3.0'f32,11.0'f32),(16.0'f32,21.0'f32,10.0'f32,14.0'f32)]:
     var x=field[0]+0.2
@@ -151,62 +197,71 @@ proc drawFarm() =
       x+=0.32
   for crop in recording.crops[frameIndex]:
     let p=point(crop["pos"])
-    # Corn is what the crew is there for, so a standing crop reads from the
-    # camera: four stalks about a tractor tall, each with a cob and a tassel,
-    # rather than the ground-level sprigs it started as.
-    for dx in [-0.33'f32,0.33]:
-      for dz in [-0.3'f32,0.3]:
-        let stem=p+vec3(dx,0.02,dz)
-        let leaf=rgbx(96,139,42,255)
-        let pale=rgbx(120,161,55,255)
-        box(stem,vec3(0.07,1.1,0.07),leaf)
-        renderer.addTriangle(stem+vec3(0,0.42,0),stem+vec3(0.44,0.74,0.05),stem+vec3(0,0.7,0.05),pale)
-        renderer.addTriangle(stem+vec3(0,0.58,0),stem+vec3(-0.42,0.92,-0.04),stem+vec3(0,0.86,-0.05),leaf)
-        renderer.addTriangle(stem+vec3(0,0.26,0),stem+vec3(0.3,0.5,-0.3),stem+vec3(0,0.5,-0.06),leaf)
-        cornCob(renderer,stem+vec3(0.1,0.58,0.02),scale=2.1)
-        box(stem+vec3(0,1.1,0),vec3(0.05,0.17,0.05),rgbx(216,186,101,255))
+    # Four corn plants per standing crop tile, each turned a little so the
+    # rows do not read as copies.
+    var k=0
+    for dx in [-0.42'f32,0.42]:
+      for dz in [-0.42'f32,0.42]:
+        let turn=((crop["pos"][0].getInt*7+crop["pos"][1].getInt*13+k) mod 4).float32*PI.float32/2
+        placeFarm("corn",p+vec3(dx,0.0,dz),turn,1.7)
+        inc k
   let frame=recording.frames[frameIndex]
   for entity in frame["entities"]:
     let p=point(entity["pos"])
     case entity["kind"].getStr
     of "creature":
+      let species=entity{"species"}.getStr(entity{"type"}.getStr)
+      let alive=entity["alive"].getBool
       var phase=0'f32
       for ch in entity["id"].getStr:phase+=ch.ord.float32*0.17
-      cuteAnimal(renderer,p,entity{"species"}.getStr(entity{"type"}.getStr),entity["alive"].getBool,
-        visualTick/6,phase,deathAge(entity))
+      if hasFarmModel(species):
+        let seconds=(visualTick-deathAge(entity))/6
+        let t=seconds*0.65+phase
+        let yaw=arctan2(-0.12*sin(t),0.10*cos(t))
+        let h=animalHeight(species)
+        let tint=if species=="opossum":color(0.62,0.6,0.62,1) else:color(1,1,1,1)
+        if alive:
+          let breath=1+0.03*sin(visualTick*0.9+phase)
+          placeFarm(species,entityPosition(entity),yaw,vec3(h,h*breath,h),tint)
+        else:
+          renderer.addCircle(p+vec3(0,0.015,0),0.32+0.08*min(deathAge(entity),3'f32),rgbx(118,22,24,215))
+          placeFarm(species,p,yaw,h,tint,roll=PI.float32/2)
+      else:
+        cuteAnimal(renderer,p,species,alive,visualTick/6,phase,deathAge(entity))
     of "rock":
-      box(p,vec3(0.55,0.35,0.48),rgbx(125,129,128,255))
-      box(p+vec3(0.03,0.35,0),vec3(0.32,0.13,0.3),rgbx(151,153,143,255))
+      var turn=0'f32
+      for ch in entity["id"].getStr:turn+=ch.ord.float32*0.31
+      placeFarm("rock",p,turn,vec3(0.52,0.62,0.42))
     else:
       if entity["alive"].getBool:
-        box(p,vec3(0.65,0.38,0.46),rgbx(207,171,73,255))
-        for dx in [-0.18'f32,0.18]: box(p+vec3(dx,0.39,0),vec3(0.04,0.01,0.46),rgbx(126,102,54,255))
+        placeFarm("hay",p,0,vec3(1.5,1.0,1.5))
+      else:
+        placeFarm("hay",p,0,vec3(1.8,0.28,1.8))
   for actor in frame["agents"]:
     var p=point(actor["pos"])
     let slot=actor["slot"].getInt
-    let colors=[rgbx(50,127,172,255),rgbx(211,108,49,255),rgbx(160,92,170,255),rgbx(57,153,126,255)]
     let hit=cues.impactAge("rock_hit",slot=slot)
     if hit<6:
       let decay=1-hit/6
       p+=vec3(sin(hit*16)*0.13*decay,abs(sin(hit*11))*0.08*decay,cos(hit*19)*0.06*decay)
-    let c=if hit<5 and (hit*5).int mod 2==0:rgbx(255,101,73,255) else:colors[slot mod colors.len]
-    template tractorBox(at,size:Vec3,color:ColorRGBX)=
-      box(p+(at-p)*3.2,size*3.2,color)
-    tractorBox(p+vec3(0,0.2,0),vec3(0.68,0.3,0.48),c)
-    tractorBox(p+vec3(-0.15,0.5,0),vec3(0.3,0.32,0.36),rgbx(179,211,211,255))
-    tractorBox(p+vec3(-0.15,0.82,0),vec3(0.39,0.06,0.44),c)
-    for dx in [-0.23'f32,0.23]:
-      for dz in [-0.27'f32,0.27]: tractorBox(p+vec3(dx,0.03,dz),vec3(0.22,0.32,0.15),rgbx(42,46,40,255))
-    # The load changes the 3D model: a wooden rear basket filled with ears
-    # of corn and green husks. Empty tractors have only the bare rear rack.
-    let cargo=p+vec3(-0.56,0.23,0)
-    tractorBox(cargo,vec3(0.45,0.07,0.52),rgbx(128,91,53,255))
+    let flash=hit<5 and (hit*5).int mod 2==0
+    let yaw=agentHeading(slot)
+    placeFarm("tractor_" & $(slot mod 4),p,yaw,2.0,
+      if flash:color(1.6,0.75,0.65,1) else:color(1,1,1,1))
+    # The load shows on the model: a wooden basket towed behind the tractor,
+    # filled with ears of corn when it carries. Empty tractors tow the bare rack.
+    let back=vec3(-sin(yaw),0,-cos(yaw))
+    let side=vec3(cos(yaw),0,-sin(yaw))
+    let cargo=p+back*1.75
+    rotBox(cargo+vec3(0,0.42,0),vec3(1.45,0.1,1.1),yaw,rgbx(128,91,53,255))
+    for dz in [-0.5'f32,0.5]:rotBox(cargo+back*dz+vec3(0,0.52,0),vec3(1.5,0.5,0.1),yaw,rgbx(188,141,78,255))
+    for dx in [-0.68'f32,0.68]:rotBox(cargo+side*dx+vec3(0,0.52,0),vec3(0.1,0.5,1.1),yaw,rgbx(188,141,78,255))
+    for leg in [back*0.45+side*0.6,back*0.45-side*0.6,back*(-0.45)+side*0.6,back*(-0.45)-side*0.6]:
+      box(cargo+leg,vec3(0.1,0.42,0.1),rgbx(70,52,36,255))
     if actor["carrying"].getBool:
       let stolen=recording.stolenCargo(frameIndex,slot)
-      for dz in [-0.25'f32,0.25]:tractorBox(cargo+vec3(0,0.07,dz),vec3(0.47,0.19,0.04),rgbx(188,141,78,255))
-      for dx in [-0.21'f32,0.21]:tractorBox(cargo+vec3(dx,0.07,0),vec3(0.04,0.19,0.52),rgbx(188,141,78,255))
-      for dx in [-0.13'f32,0,0.13]:
-        for dz in [-0.16'f32,0,0.16]:cornCob(renderer,p+(cargo+vec3(dx,0.14,dz)-p)*3.2,scale=2)
+      for dx in [-0.35'f32,0,0.35]:
+        for dz in [-0.3'f32,0,0.3]:cornCob(renderer,cargo+side*dx+back*dz+vec3(0,0.62,0),scale=2)
       if stolen:renderer.addCircle(p+vec3(0,0.018,0),0.55,rgbx(239,167,39,75))
   for cue in cues:
     let event=cue.event
@@ -325,28 +380,32 @@ proc frame() =
     target=mix(target,selectedPosition(),min(1'f32,dt*3))
   else: target=mix(target,vec3(0,0,0),min(1'f32,dt*3))
   let eye=target+vec3(cos(yaw)*cos(pitch)*distance,sin(pitch)*distance,sin(yaw)*cos(pitch)*distance)
-  var vp=perspective(45'f32,window.size.x.float32/max(1'f32,window.size.y.float32),0.1'f32,400'f32)*lookAt(eye,target,vec3(0,1,0))
+  let view=lookAt(eye,target,vec3(0,1,0))
+  var proj=perspective(45'f32,window.size.x.float32/max(1'f32,window.size.y.float32),0.1'f32,400'f32)
   # Shift projected scene left to reserve the inspector column.
   var framing=mat4()
   framing[3,0] = -layout.sidebarW/ui.x*0.7
-  vp=framing*vp
+  proj=framing*proj
+  var vp=proj*view
   pickObject(vp)
+  drawFarm()
   glViewport(0,0,window.size.x,window.size.y)
   applySunHour(15.4)
   sunDepthPasses(window.size):
     drawTerrainSunDepth()
+    drawFarmSunDepth()
   glClearColor(0.37,0.48,0.38,1)
   glClear(GL_COLOR_BUFFER_BIT or GL_DEPTH_BUFFER_BIT)
   glEnable(GL_DEPTH_TEST)
   glDisable(GL_CULL_FACE)
   drawTerrain(vp, showEdges=false)
-  drawFarm()
   if selection.kind.len>0:
     let p=selectedPosition()+vec3(0,0.035,0)
     var circle:seq[Vec3]
     for i in 0..32:circle.add p+vec3(cos(i.float32*2*PI.float32/32)*0.62,0,sin(i.float32*2*PI.float32/32)*0.62)
     renderer.addPolyline(circle,rgbx(255,231,133,230),0.025)
   renderer.draw(vp, depthWrite=true)
+  drawFarmModels(view,proj,eye)
   glDisable(GL_DEPTH_TEST)
   glDisable(GL_CULL_FACE)
   glDisable(GL_BLEND)
