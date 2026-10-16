@@ -66,7 +66,7 @@ proc onFarmLane*(p: Vec2): bool =
 
 # Cultivated plots: soft rounded blobs (a squared-off ellipse with a wobbly
 # edge), one at the upper left and one inside the lower fence.
-const FarmPlots*=[(vec2(3.0,7.0),vec2(2.1,4.1)),(vec2(18.5,12.0),vec2(2.6,2.1))]
+const FarmPlots* = [(vec2(3.0,7.0),vec2(2.1,4.1)),(vec2(18.5,12.0),vec2(2.6,2.1))]
 
 proc inFarmPlot*(p: Vec2): bool =
   for (c,r) in FarmPlots:
