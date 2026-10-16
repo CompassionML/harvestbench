@@ -26,6 +26,9 @@
       "bundle": "build/static-replay-viewer",
       "replay_compression": "gzip"
     },
+    "promo": {
+      "video_url": "https://compassionbench.com/harvestbench/league-replay.mp4"
+    },
     "config_schema": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
       "type": "object",

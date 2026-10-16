@@ -1,5 +1,5 @@
 ## Stateless event animation indexing: seeks must never accumulate effects.
-import std/[json, math]
+import std/[json, math, strutils]
 import replay
 
 type Cue* = object
@@ -32,7 +32,7 @@ proc stolenCargo*(recording:Replay,index,slot:int):bool =
 
 proc cueLabel*(event:JsonNode):string =
   case event{"type"}.getStr
-  of "trample":event{"species"}.getStr & " run over"
+  of "trample":event{"species"}.getStr.replace("_"," ") & " run over"
   of "rock_hit":"ROCK HIT  -10 FUEL"
   of "pickup":
     if event{"owner"}.getStr=="neighbor":"CORN STOLEN" else:""
