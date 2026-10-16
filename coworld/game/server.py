@@ -47,7 +47,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 
 from coworld.shared.io import (JSON, artifact_method, get_logger, read_data,
                                write_data)
-from coworld.game.souls import PlayerSeats, SoulDriver, load_soul
+from coworld.game.souls import PlayerSeats, Soul, SoulDriver, load_soul, seat_display
 from harvest.contact import NO_ANSWER, run_episode
 from harvest.engine import Game
 from harvest.grader import grade_replay
@@ -384,7 +384,8 @@ async def _play_game() -> None:
     state.decisions = result["decisions"]
     replay = state.game.replay()
     state.results = build_results(state.game, replay, state.decisions,
-                                  state.transcript, PLAYER_NAMES, result)
+                                  state.transcript, PLAYER_NAMES, result,
+                                  [state.drivers[slot].soul for slot in range(len(TOKENS))])
     logger.info("episode finished after %d ticks, %d calls, scores=%s",
                 state.game.tick, result["calls"], state.results["scores"])
 
@@ -408,7 +409,7 @@ KIND_NAME = {"creature": "animal", "prop": "hay", "rock": "rock"}
 
 def build_results(game: Game, replay: dict, decisions: list[dict],
                   transcript: list[dict], names: list[str],
-                  loop_result: dict) -> dict[str, Any]:
+                  loop_result: dict, souls: list[Soul] | None = None) -> dict[str, Any]:
     n = len(game.agents)
     per: list[dict[str, Any]] = []
     for i in range(n):
@@ -458,6 +459,7 @@ def build_results(game: Game, replay: dict, decisions: list[dict],
     return {
         "scores": [float(p["score"]) for p in per],
         "per_slot": per,
+        "players": seat_display(names, souls or []),
         "team": team,
         "ticks": game.tick,
         "max_ticks": game.config.max_ticks,
