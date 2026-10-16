@@ -6,6 +6,74 @@ import polyworld/[pathing, quadterrain, shadows, toon]
 
 const TileSize* = 2
 
+proc hash2(ix,iz: int): float32 =
+  var n=(ix*374761393 + iz*668265263) and 0x7fffffff
+  n=((n xor (n shr 13))*1274126177) and 0x7fffffff
+  (n and 0xffff).float32/65535
+
+proc fieldNoise*(x,z: float32): float32 =
+  ## Smooth 0..1 value noise in cell units; gives the dirt edges their wobble.
+  let ix=floor(x).int
+  let iz=floor(z).int
+  var fx=x-ix.float32
+  var fz=z-iz.float32
+  fx=fx*fx*(3-2*fx)
+  fz=fz*fz*(3-2*fz)
+  let a=hash2(ix,iz)
+  let b=hash2(ix+1,iz)
+  let c=hash2(ix,iz+1)
+  let d=hash2(ix+1,iz+1)
+  mix(mix(a,b,fx),mix(c,d,fx),fz)
+
+# The farm track, in grid-cell units: it leaves the upper plot, wanders
+# across the pasture and bends down to the barn. Catmull-Rom through these.
+const LaneControl=[
+  vec2(1.5,6.5),vec2(3.6,6.3),vec2(7.0,7.1),vec2(10.5,5.8),vec2(14.0,6.9),
+  vec2(17.5,6.0),vec2(20.5,6.6),vec2(22.3,8.4),vec2(22.7,11.0),vec2(22.4,13.5)]
+
+proc farmLane*(): seq[Vec2] =
+  ## The lane's centre line as a fine polyline (cell units).
+  for i in 1..<LaneControl.len-2:
+    let p0=LaneControl[i-1]
+    let p1=LaneControl[i]
+    let p2=LaneControl[i+1]
+    let p3=LaneControl[i+2]
+    for k in 0..<10:
+      let t=k.float32/10
+      let t2=t*t
+      let t3=t2*t
+      result.add (p1*2'f32+(p2-p0)*t+(p0*2'f32-p1*5'f32+p2*4'f32-p3)*t2+(p1*3'f32-p0-p2*3'f32+p3)*t3)*0.5'f32
+  result.add LaneControl[^2]
+
+let laneLine=farmLane()
+
+proc laneDistance*(p: Vec2): float32 =
+  ## Distance from a point (cell units) to the lane's centre line.
+  result=float32.high
+  for i in 0..<laneLine.len-1:
+    let a=laneLine[i]
+    let b=laneLine[i+1]
+    let ab=b-a
+    let t=clamp(dot(p-a,ab)/max(dot(ab,ab),1e-6'f32),0'f32,1'f32)
+    result=min(result,length(p-(a+ab*t)))
+
+proc laneHalfWidth*(p: Vec2): float32 =
+  0.58+0.16*(fieldNoise(p.x*0.9+3,p.y*0.9)-0.5)
+
+proc onFarmLane*(p: Vec2): bool =
+  laneDistance(p)<laneHalfWidth(p)
+
+# Cultivated plots: soft rounded blobs (a squared-off ellipse with a wobbly
+# edge), one at the upper left and one inside the lower fence.
+const Plots=[(vec2(3.0,7.0),vec2(2.1,4.1)),(vec2(18.5,12.0),vec2(2.6,2.1))]
+
+proc inFarmPlot*(p: Vec2): bool =
+  for (c,r) in Plots:
+    let d=p-c
+    let e=pow(abs(d.x/r.x),2.6'f32)+pow(abs(d.y/r.y),2.6'f32)
+    if e<1+0.22*(fieldNoise(p.x*1.3,p.y*1.3)-0.5): return true
+  false
+
 proc farmElevation(x,z,w,h: float32): float32 =
   let outside = max(max(-x,x-w),max(-z,z-h))
   if outside <= 0: return 0
@@ -26,13 +94,10 @@ proc initFarmTerrain*(data: JsonNode) =
       let gx=floor(wx.float32/TileSize.float32).int
       let gz=floor(wz.float32/TileSize.float32).int
       var kind=GrassTile
-      # Broad cultivated plots, not a square under every individual crop.
-      if (gx in 1..4 and gz in 3..10) or (gx in 16..20 and gz in 10..13):
-        kind=RoadTile
-      # A softly curving farm track that skirts the upper pasture.
-      let lane=6.4+0.65*sin(wx.float32/TileSize.float32*0.29)
-      if gx in 4..22 and abs(wz.float32/TileSize.float32-lane)<0.6: kind=RoadTile
-      if gx in 21..23 and gz in 6..10: kind=RoadTile
+      # Dirt follows curves, never cell boundaries: rounded plots and a
+      # winding lane, both with a noisy edge, tested at the tile's centre.
+      let cell=vec2((wx.float32+0.5)/TileSize.float32,(wz.float32+0.5)/TileSize.float32)
+      if inFarmPlot(cell) or onFarmLane(cell): kind=RoadTile
       if gx<0 or gx>=w div TileSize or gz<0 or gz>=h div TileSize:
         if (x*19+z*37) mod 17==0 and (gx < -2 or gx>w div TileSize+2 or gz < -2 or gz>h div TileSize+2):
           kind=TreeTile
@@ -56,7 +121,7 @@ proc initFarmTerrain*(data: JsonNode) =
   terrainGrassPatchSize=10
   initTerrain(MixedTrees,GeneratedTerrain,PaintedRocks)
   terrainTextureScale=0.55
-  terrainBlendDepth=0.65
+  terrainBlendDepth=0.9
   terrainSplatChance=0.35
   setTileColor(GrassTile.int,vec3(0.93,1.0,0.85),vec3(0.75))
   setTileColor(RoadTile.int,vec3(0.80,0.66,0.47),vec3(0.62))

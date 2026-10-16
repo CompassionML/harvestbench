@@ -188,23 +188,34 @@ proc drawFarm() =
     let across=TileSize.float32*1.35
     let size=vec3(across/1.028,across/1.028*1.05,length/1.221)
     placeFarm("barn",p,if alongX:PI.float32/2 else:0'f32,size)
-  # Two tyre ruts follow the lane so the road reads as driven dirt.
+  # Two tyre ruts ride the lane's curve so the road reads as driven dirt.
+  proc world(c: Vec2, y: float32): Vec3 =
+    vec3((c.x-width/2)*TileSize.float32,y,(c.y-height/2)*TileSize.float32)
   let rut=rgbx(118,88,54,110)
-  for side in [-0.42'f32,0.42]:
-    var prev=vec3(0)
-    var gx=4.0'f32
-    while gx<=22.5:
-      let lane=6.4+0.65*sin(gx*0.29)
-      let here=vec3((gx-width/2+0.5)*TileSize.float32,0.014,(lane-height/2+0.5+side)*TileSize.float32)
-      if gx>4.0:renderer.addLine(prev,here,rut,0.06)
-      prev=here
-      gx+=0.5
-  # Parallel planting furrows are a farm feature, not simulation tile borders.
-  for field in [(1.0'f32,5.0'f32,3.0'f32,11.0'f32),(16.0'f32,21.0'f32,10.0'f32,14.0'f32)]:
-    var x=field[0]+0.2
-    while x<field[1]:
-      renderer.addLine(vec3((x-width/2)*TileSize.float32,0.012,(field[2]-height/2+0.2)*TileSize.float32),
-        vec3((x-width/2)*TileSize.float32,0.012,(field[3]-height/2-0.2)*TileSize.float32),rgbx(109,87,51,90),0.017)
+  let lane=farmLane()
+  for side in [-0.36'f32,0.36]:
+    for i in 1..<lane.len:
+      let a=lane[i-1]
+      let b=lane[i]
+      let t=normalize(b-a)
+      let n=vec2(-t.y,t.x)*side
+      if inFarmPlot(a) and inFarmPlot(b): continue
+      renderer.addLine(world(a+n,0.014),world(b+n,0.014),rut,0.06)
+  # Planting furrows: short runs that stop at the plot's curved edge.
+  let furrow=rgbx(109,87,51,90)
+  for (c,r) in [(vec2(3.0,7.0),vec2(2.1,4.1)),(vec2(18.5,12.0),vec2(2.6,2.1))]:
+    var x=c.x-r.x+0.1
+    while x<c.x+r.x:
+      var z=c.y-r.y
+      var runStart= -1'f32
+      while z<=c.y+r.y+0.25:
+        let inside=z<=c.y+r.y and inFarmPlot(vec2(x,z)) and not onFarmLane(vec2(x,z))
+        if inside and runStart<0: runStart=z
+        if not inside and runStart>=0:
+          if z-runStart>0.6:
+            renderer.addLine(world(vec2(x,runStart+0.15),0.012),world(vec2(x,z-0.4),0.012),furrow,0.017)
+          runStart= -1'f32
+        z+=0.25
       x+=0.32
   for crop in recording.crops[frameIndex]:
     let p=point(crop["pos"])
