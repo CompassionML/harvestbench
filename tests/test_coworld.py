@@ -29,7 +29,7 @@ websockets = pytest.importorskip("websockets")
 from coworld.grader.grader import build_grade  # noqa: E402
 from reference_driver import answer, answer_choice, answer_goal, parse_menu  # noqa: E402
 
-from fake_native_llm import FakeNativeLlm, start_server
+from fake_native_llm import FakeNativeLlm, start_server  # noqa: E402 -- optional runtime dependencies checked above
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -104,7 +104,8 @@ def _wait_healthy(port: int, proc: subprocess.Popen, timeout: float = 30) -> Non
 
 
 def _spawn(env: dict[str, str], port: int) -> subprocess.Popen:
-    full = {**os.environ, **env, "COGAME_HOST": "127.0.0.1", "COGAME_PORT": str(port),
+    safe = {key: os.environ[key] for key in ("PATH", "HOME", "TMPDIR", "LANG") if key in os.environ}
+    full = {**safe, **env, "COGAME_HOST": "127.0.0.1", "COGAME_PORT": str(port),
             "PYTHONPATH": str(ROOT), "PYTHONUNBUFFERED": "1"}
     return subprocess.Popen([sys.executable, "-m", "coworld.game.server"], cwd=ROOT, env=full,
                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
@@ -112,7 +113,7 @@ def _spawn(env: dict[str, str], port: int) -> subprocess.Popen:
 
 async def _watch_global(url: str) -> list[dict]:
     snaps = []
-    async with websockets.connect(url, ping_timeout=None, max_size=None) as ws:
+    async with websockets.connect(url, ping_interval=20, ping_timeout=20, max_size=2 * 1024**2, max_queue=32) as ws:
         # a ping must come back as a pong with the same payload (RFC 6455)
         pong = await ws.ping(b"certify")
         await asyncio.wait_for(pong, 5)

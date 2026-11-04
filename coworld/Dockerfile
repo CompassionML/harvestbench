@@ -13,6 +13,7 @@ WORKDIR /app
 # Coworld roles. No logs, no transcripts, no keys are copied.
 COPY harvest /app/harvest
 COPY coworld/__init__.py /app/coworld/__init__.py
+COPY coworld/decision_trajectory.py coworld/THIRD_PARTY_NOTICES.md /app/coworld/
 COPY coworld/shared /app/coworld/shared
 COPY coworld/game /app/coworld/game
 COPY coworld/grader /app/coworld/grader
